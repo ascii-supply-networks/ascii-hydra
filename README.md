@@ -1,3 +1,0 @@
-# ASCII hydra
-
-OSS
