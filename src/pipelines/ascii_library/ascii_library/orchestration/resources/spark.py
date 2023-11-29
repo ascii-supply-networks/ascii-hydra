@@ -1,6 +1,6 @@
 import os
 
-from dagster_pyspark import pyspark_resource
+from dagster_pyspark import lazy_pyspark_resource
 
 
 def get_pyspark_config(
@@ -49,4 +49,4 @@ def get_pyspark_config(
     if url:
         results["spark_conf"]["spark.hadoop.fs.s3a.endpoint"] = url
 
-    return pyspark_resource.configured(results)
+    return lazy_pyspark_resource.configured(results)

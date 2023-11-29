@@ -10,7 +10,7 @@ from dagster import (
     ResourceDependency,
 )
 from dagster import _check as check
-from dagster_pyspark.resources import PySparkResource
+from dagster_pyspark.resources import LazyPySparkResource
 from pyspark.sql import DataFrame as PySparkDataFrame
 
 
@@ -27,7 +27,7 @@ class PartitionedParquetIOManager(ConfigurableIOManager):
     # Based on: https://github.com/dagster-io/dagster/blob/master/examples/project_fully_featured/project_fully_featured/resources/parquet_io_manager.py#L17
 
     _base_path: Optional[str]
-    pyspark: ResourceDependency[PySparkResource]
+    pyspark: ResourceDependency[LazyPySparkResource]
     _storage_options: Mapping[str, str]
 
     @property
