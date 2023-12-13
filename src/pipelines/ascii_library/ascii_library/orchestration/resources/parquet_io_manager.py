@@ -41,7 +41,7 @@ class PartitionedParquetIOManager(ConfigurableIOManager):
         context.log.debug(
             f"partitions: {context.has_asset_partitions}, type: {context.dagster_type.typing_type} ***"
         )
-        if "://" not in self._base_path:
+        if self._base_path is not None and "://" not in self._base_path:
             os.makedirs(os.path.dirname(path), exist_ok=True)
 
         if isinstance(obj, pd.DataFrame):
@@ -85,15 +85,21 @@ class PartitionedParquetIOManager(ConfigurableIOManager):
             dt_format = "%Y%m%d%H%M%S"
             # TODO potentially use hive-style partitioning for better spark support (if needed)
             partition_str = start.strftime(dt_format) + "_" + end.strftime(dt_format)
-            return os.path.join(self._base_path, key, f"{partition_str}.parquet")
+            if self._base_path is not None:
+                return os.path.join(self._base_path, key, f"{partition_str}.parquet")
+            else:
+                return os.path.join(key, f"{partition_str}.parquet")
         else:
-            return os.path.join(self._base_path, f"{key}.parquet")
+            if self._base_path is not None:
+                return os.path.join(self._base_path, f"{key}.parquet")
+            else:
+                return f"{key}.parquet"
 
 
 class LocalPartitionedParquetIOManager(PartitionedParquetIOManager):
     base_key: Optional[str]
 
-    @property
+    @property  # type: ignore
     def _base_path(self):
         out_path = Path("z_state") / "object_warehouse"
         out_path.mkdir(parents=True, exist_ok=True)
@@ -103,7 +109,7 @@ class LocalPartitionedParquetIOManager(PartitionedParquetIOManager):
         else:
             return str(out_path)
 
-    @property
+    @property  # type: ignore
     def _storage_options(self):
         return {}
 
@@ -114,11 +120,11 @@ class S3PartitionedParquetIOManager(PartitionedParquetIOManager):
     access_key_secret: str
     endpoint_url: Optional[str]
 
-    @property
+    @property  # type: ignore
     def _base_path(self):
         return "s3a://" + self.s3_bucket
 
-    @property
+    @property  # type: ignore
     def _storage_options(self):
         # Prep branch deployments:
         # listen to environment variables like:
