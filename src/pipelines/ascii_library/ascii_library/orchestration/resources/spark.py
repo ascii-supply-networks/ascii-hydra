@@ -37,7 +37,6 @@ def get_pyspark_config(
             "spark.hadoop.fs.s3a.fast.upload.active.blocks": "4",
             # "spark.databricks.delta.schema.autoMerge.enabled": "true",
             # "spark.sql.parquet.mergeSchema": "true",
-            "spark.hadoop.fs.s3a.committer.name": "directory",
             "spark.sql.parquet.compression.codec": "gzip",
             "spark.hadoop.fs.s3a.access.key": os.environ[AWS_ACCESS_KEY_ID],
             "spark.hadoop.fs.s3a.secret.key": os.environ[AWS_SECRET_ACCESS_KEY],
