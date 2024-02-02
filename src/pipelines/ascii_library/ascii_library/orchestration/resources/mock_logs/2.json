@@ -1,0 +1,1 @@
+{"__dagster_pipes_version": "0.1", "method": "log", "params": {"message": "DataFrame row count: 3", "level": "INFO"}}

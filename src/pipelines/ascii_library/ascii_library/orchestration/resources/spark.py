@@ -8,6 +8,25 @@ def get_pyspark_config(
     AWS_ACCESS_KEY_ID: str = "ASCII_AWS_ACCESS_KEY_ID",
     AWS_SECRET_ACCESS_KEY: str = "ASCII_AWS_SECRET_ACCESS_KEY",
 ):
+    return lazy_pyspark_resource.configured(
+        dev_spark_config(url, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+    )
+
+
+def dev_spark_config(
+    url: str = None,
+    AWS_ACCESS_KEY_ID: str = "ASCII_AWS_ACCESS_KEY_ID",
+    AWS_SECRET_ACCESS_KEY: str = "ASCII_AWS_SECRET_ACCESS_KEY",
+):
+    try:
+        key = os.environ[AWS_ACCESS_KEY_ID]
+        secret = os.environ[AWS_SECRET_ACCESS_KEY]
+    except KeyError:
+        print(
+            f"Please set {AWS_ACCESS_KEY_ID} and {AWS_SECRET_ACCESS_KEY} environment variables - using invalid default values instead"
+        )
+        key = "NO_KEY_PROVIDED"
+        secret = "NO_SECRET_PROVIDED"
     results = {
         "spark_conf": {
             "spark.master": "local[7]",
@@ -38,8 +57,8 @@ def get_pyspark_config(
             # "spark.databricks.delta.schema.autoMerge.enabled": "true",
             # "spark.sql.parquet.mergeSchema": "true",
             "spark.sql.parquet.compression.codec": "gzip",
-            "spark.hadoop.fs.s3a.access.key": os.environ[AWS_ACCESS_KEY_ID],
-            "spark.hadoop.fs.s3a.secret.key": os.environ[AWS_SECRET_ACCESS_KEY],
+            "spark.hadoop.fs.s3a.access.key": key,
+            "spark.hadoop.fs.s3a.secret.key": secret,
             "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
             "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog",
             "spark.jars.packages": "io.delta:delta-spark_2.12:3.0.0,org.postgresql:postgresql:42.7.0,org.apache.hadoop:hadoop-aws:3.3.4,org.apache.spark:spark-hadoop-cloud_2.12:3.5.0",
@@ -47,5 +66,4 @@ def get_pyspark_config(
     }
     if url:
         results["spark_conf"]["spark.hadoop.fs.s3a.endpoint"] = url
-
-    return lazy_pyspark_resource.configured(results)
+    return results

@@ -14,7 +14,7 @@ from dagster_pyspark.resources import LazyPySparkResource
 from pyspark.sql import DataFrame as PySparkDataFrame
 
 
-class PartitionedParquetIOManager(ConfigurableIOManager):
+class PartitionedParquetIOManager(ConfigurableIOManager):  # type: ignore
     """This IOManager will take in a pandas or pyspark dataframe and store it in parquet at the
     specified path.
 
@@ -96,7 +96,7 @@ class PartitionedParquetIOManager(ConfigurableIOManager):
                 return f"{key}.parquet"
 
 
-class LocalPartitionedParquetIOManager(PartitionedParquetIOManager):
+class LocalPartitionedParquetIOManager(PartitionedParquetIOManager):  # type: ignore
     base_key: Optional[str]
 
     @property  # type: ignore
@@ -114,7 +114,7 @@ class LocalPartitionedParquetIOManager(PartitionedParquetIOManager):
         return {}
 
 
-class S3PartitionedParquetIOManager(PartitionedParquetIOManager):
+class S3PartitionedParquetIOManager(PartitionedParquetIOManager):  # type: ignore
     s3_bucket: str
     access_key_id: str
     access_key_secret: str
