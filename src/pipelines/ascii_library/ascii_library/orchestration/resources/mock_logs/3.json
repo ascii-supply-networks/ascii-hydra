@@ -1,0 +1,2 @@
+{"__dagster_pipes_version": "0.1", "method": "report_asset_materialization", "params": {"asset_key": "aws_s3/playground_ext/subprocess_asset", "data_version": "alpha", "metadata": {"some_metric": {"raw_value": 4, "type": "int"}, "some_spark_metric": {"raw_value": "tallahassee", "type": "__infer__"}}}}
+{"__dagster_pipes_version": "0.1", "method": "closed", "params": {}}
