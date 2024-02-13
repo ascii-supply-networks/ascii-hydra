@@ -61,7 +61,7 @@ def dev_spark_config(
             "spark.hadoop.fs.s3a.secret.key": secret,
             "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
             "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog",
-            "spark.jars.packages": "io.delta:delta-spark_2.12:3.0.0,org.postgresql:postgresql:42.7.0,org.apache.hadoop:hadoop-aws:3.3.4,org.apache.spark:spark-hadoop-cloud_2.12:3.5.0",
+            "spark.jars.packages": "io.delta:delta-spark_2.12:3.1.0,org.postgresql:postgresql:42.7.0,org.apache.hadoop:hadoop-aws:3.3.4,org.apache.spark:spark-hadoop-cloud_2.12:3.5.0",
         }
     }
     if url:

@@ -10,6 +10,7 @@ from ascii_library.orchestration.pipes.cloud_reader_writer_s3 import (
     PipesS3MessageReader,
 )
 from ascii_library.orchestration.pipes.emr_constants import mock, pipeline_bucket
+from ascii_library.orchestration.pipes.instance_config import CloudInstanceConfig
 from ascii_library.orchestration.pipes.utils import (
     library_from_dbfs_paths,
     library_to_cloud_paths,
@@ -48,6 +49,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         self,
         emr_client: client,
         s3_client: client,
+        price_client: client,
         bucket: str,
         context_injector: Optional[PipesContextInjector] = None,
         message_reader: Optional[PipesMessageReader] = None,
@@ -59,7 +61,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             message_reader=message_reader,
             s3_client=s3_client,
         )
-        self.client = client
+        self._price_client = price_client
         self._emr_client = emr_client
         get_dagster_logger().debug(
             f"context_injector: bucket={bucket}, s3_client={s3_client}, emr_client={emr_client}"
@@ -131,8 +133,8 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             if config.get("Classification") == "spark-env":
                 props = config.get("Configurations")[0].get("Properties")
                 props[key] = value
-                props[f"spark.executorEnv.{key}"] = value
-                props[f"spark.yarn.appMasterEnv.{key}"] = value
+                # props[f"spark.executorEnv.{key}"] = value
+                # props[f"spark.yarn.appMasterEnv.{key}"] = value
                 cluster_config["Configurations"][i]["Configurations"][0][
                     "Properties"
                 ] = props
@@ -184,8 +186,28 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         libraries_to_build_and_upload: Optional[List[str]] = None,
         libraries: Optional[List[LibraryConfig]] = None,
         extras: Optional[PipesExtras] = None,
+        fleet_config: Optional[CloudInstanceConfig] = None,
     ) -> PipesClientCompletedInvocation:
         """Synchronously execute an EMR job with the pipes protocol."""
+        if (
+            emr_job_config["Instances"].get("InstanceGroups") is None
+            and emr_job_config["Instances"].get("InstanceFleets") is None
+            and fleet_config is not None
+        ):
+            emr_job_config["Instances"]["InstanceFleets"] = (
+                fleet_config.get_fleet_programatically(
+                    emrClient=self._emr_client, priceClient=self._price_client
+                )
+            )
+            emr_job_config["ManagedScalingPolicy"]["ComputeLimits"][
+                "UnitType"
+            ] = "InstanceFleetUnits"
+        elif (
+            emr_job_config["Instances"].get("InstanceGroups") is None
+            and emr_job_config["Instances"].get("InstanceFleets") is None
+            and fleet_config is None
+        ):
+            raise
         extras, emr_job_config = self.prepare_emr_job(
             local_file_path=local_file_path,
             bucket=bucket,
@@ -221,6 +243,10 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                 else:
                     job_flow = self._emr_client.run_job_flow(**emr_job_config)
                     get_dagster_logger().debug(f"EMR configuration: {job_flow}")
+                    self._emr_client.add_tags(
+                        ResourceId=job_flow["JobFlowId"],
+                        Tags=[{"Key": "key_prefix", "Value": self._key_prefix}],
+                    )
                     self._emr_client.add_job_flow_steps(
                         JobFlowId=job_flow["JobFlowId"],
                         Steps=[extras.get("step_config")],
