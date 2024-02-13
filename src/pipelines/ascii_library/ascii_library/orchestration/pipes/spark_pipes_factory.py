@@ -6,6 +6,7 @@ from ascii_library.orchestration.pipes import LibraryConfig, LibraryKind
 from ascii_library.orchestration.pipes.databricks import PipesDatabricksEnhancedClient
 from ascii_library.orchestration.pipes.emr import PipesEmrEnhancedClient
 from ascii_library.orchestration.pipes.emr_constants import pipeline_bucket
+from ascii_library.orchestration.pipes.instance_config import CloudInstanceConfig
 from ascii_library.orchestration.pipes.spark_pipes import Engine, SparkPipesResource
 from ascii_library.orchestration.resources.utils import (
     get_dagster_deployment_environment,
@@ -72,6 +73,7 @@ def spark_pipes_asset_factory(  # noqa: C901
     dbr_additional_libraries: Optional[Sequence[LibraryConfig]] = None,
     emr_job_config: Optional[dict] = None,
     override_default_engine: Optional[Engine] = None,
+    fleet_filters: Optional[CloudInstanceConfig] = None,
     # TODO: in the future support IO manager perhaps for python reading directly from S3 io_manager_key:Optional[str]: None
     # but maybe we intend to keep the offline sync process
     # TODO: should we use asset KWARGS here instead for flexibility?
@@ -141,6 +143,7 @@ def spark_pipes_asset_factory(  # noqa: C901
             libraries_to_build_and_upload=libraries_to_build_and_upload,
             libraries=engine_specific_libs,
             extras=client_params,
+            fleet_config=fleet_filters,
         ).get_materialize_result()
 
     def handle_databricks(client_params, context):

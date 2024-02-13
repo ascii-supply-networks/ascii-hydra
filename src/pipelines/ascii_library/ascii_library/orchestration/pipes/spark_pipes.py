@@ -60,10 +60,17 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
                 aws_access_key_id=aws_access_key_id,
                 aws_secret_access_key=aws_secret_access_key,
             )
+            priceClient = boto3.client(
+                "pricing",
+                region_name="us-east-1",
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+            )
             return PipesEmrEnhancedClient(
                 emr_client=emrClient,
                 s3_client=s3Client,
                 bucket="ascii-supply-chain-research-pipeline",
+                price_client=priceClient,
             )
         else:
             raise ValueError(f"Unsupported engine mode: {self.engine}")
