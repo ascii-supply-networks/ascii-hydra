@@ -5,7 +5,14 @@ from typing import List, Optional, Union
 import boto3
 import dagster._check as check
 from ascii_library.orchestration.pipes.emr_constants import pipeline_bucket
-from botocore.exceptions import ClientError, NoCredentialsError
+from botocore.exceptions import (
+    ClientError,
+    ConnectionError,
+    ConnectTimeoutError,
+    NoCredentialsError,
+    ReadTimeoutError,
+    ResponseStreamingError,
+)
 from dagster import file_relative_path, get_dagster_logger
 from dagster._core.errors import DagsterPipesExecutionError
 from dagster._core.pipes.client import (
@@ -14,9 +21,31 @@ from dagster._core.pipes.client import (
     PipesMessageReader,
 )
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.core import DatabricksError
 from databricks.sdk.service import jobs
+from tenacity import (
+    RetryCallState,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    stop_after_delay,
+    wait_exponential,
+)
 
 from .utils import library_to_cloud_paths, package_library
+
+
+def after_retry(retry_state: RetryCallState):
+    """Function to log after each retry attempt."""
+    if retry_state.next_action is not None:
+        sleep_time = retry_state.next_action.sleep
+    else:
+        sleep_time = 0.0
+    get_dagster_logger().debug(
+        (
+            f"Retry attempt: {retry_state.attempt_number}. Waiting {sleep_time} seconds before next try."
+        )
+    )
 
 
 class _PipesBaseCloudClient(PipesClient):
@@ -47,8 +76,24 @@ class _PipesBaseCloudClient(PipesClient):
         else:
             self.filesystem = "dbfs"
 
+    @retry(
+        stop=stop_after_delay(20) | stop_after_attempt(10),
+        wait=wait_exponential(multiplier=1, max=60),
+        after=after_retry,
+        retry=retry_if_exception_type(
+            (
+                ConnectTimeoutError,
+                ReadTimeoutError,
+                ResponseStreamingError,
+                ConnectionError,
+            )
+        ),
+    )
+    def _retrieve_state_emr(self, cluster_id):
+        return self.main_client.describe_cluster(ClusterId=cluster_id)
+
     def _handle_emr_polling(self, cluster_id):
-        description = self.main_client.describe_cluster(ClusterId=cluster_id)
+        description = self._retrieve_state_emr(cluster_id)
         state = description["Cluster"]["Status"]["State"]
         get_dagster_logger().debug(f"EMR cluster id {cluster_id} status: {state}")
         if state in ["TERMINATED", "TERMINATED_WITH_ERRORS"]:
@@ -58,9 +103,19 @@ class _PipesBaseCloudClient(PipesClient):
         else:
             return True
 
+    @retry(
+        stop=stop_after_delay(20) | stop_after_attempt(10),
+        wait=wait_exponential(multiplier=1, max=60),
+        after=after_retry,
+        retry=retry_if_exception_type((DatabricksError)),
+    )
+    def _retrieve_state_dbr(self, run_id):
+        get_dagster_logger().debug("")
+        return self.main_client.jobs.get_run(run_id)
+
     def _handle_dbr_polling(self, run_id):
         last_observed_state = None
-        run = self.main_client.jobs.get_run(run_id)
+        run = self._retrieve_state_dbr(run_id)
         if run.state.life_cycle_state != last_observed_state:
             get_dagster_logger().debug(
                 f"[pipes] Databricks run {run_id} observed state transition to {run.state.life_cycle_state}"
