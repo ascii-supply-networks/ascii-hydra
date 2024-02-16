@@ -92,7 +92,7 @@ class VolumeType(Enum):
 
 pipeline_bucket = "ascii-supply-chain-research-pipeline"
 mock = False
-sizeInGB = 100
+sizeInGB = 300
 volumeType = VolumeType.generalPurpose2
 volumesPerInstance = 1
 ebsOptimized = True
