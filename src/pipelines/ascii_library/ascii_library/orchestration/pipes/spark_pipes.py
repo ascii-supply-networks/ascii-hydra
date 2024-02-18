@@ -27,27 +27,34 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
     engine: Engine
     execution_mode: ExecutionMode
 
-    def get_spark_pipes_client(self):
-        if self.engine == Engine.Local:
+    def get_spark_pipes_client(self, override_default_engine):
+        if override_default_engine is not None:
+            engine_to_use = override_default_engine
+        else:
+            engine_to_use = self.engine
+        if engine_to_use == Engine.Local:
             from dagster import PipesSubprocessClient
 
             return PipesSubprocessClient()
-        elif self.engine == Engine.Databricks:
+        elif engine_to_use == Engine.Databricks:
             from ascii_library.orchestration.pipes.databricks import (
                 PipesDatabricksEnhancedClient,
             )
             from databricks.sdk import WorkspaceClient
 
             workspace_client = WorkspaceClient(
-                host=os.environ["DATABRICKS_HOST"], token=os.environ["DATABRICKS_TOKEN"]
+                host=os.environ.get("DATABRICKS_HOST", "dummy"),
+                token=os.environ.get("DATABRICKS_TOKEN", "dummy"),
             )
             return PipesDatabricksEnhancedClient(workspace_client)
-        elif self.engine == Engine.EMR:
+        elif engine_to_use == Engine.EMR:
             import boto3
             from ascii_library.orchestration.pipes.emr import PipesEmrEnhancedClient
 
-            aws_access_key_id = os.environ["ASCII_AWS_ACCESS_KEY_ID"]
-            aws_secret_access_key = os.environ["ASCII_AWS_SECRET_ACCESS_KEY"]
+            aws_access_key_id = os.environ.get("ASCII_AWS_ACCESS_KEY_ID", "dummy")
+            aws_secret_access_key = os.environ.get(
+                "ASCII_AWS_SECRET_ACCESS_KEY", "dummy"
+            )
             emrClient = boto3.client(
                 "emr",
                 region_name="us-east-1",
@@ -73,4 +80,4 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
                 price_client=priceClient,
             )
         else:
-            raise ValueError(f"Unsupported engine mode: {self.engine}")
+            raise ValueError(f"Unsupported engine mode: {engine_to_use}")

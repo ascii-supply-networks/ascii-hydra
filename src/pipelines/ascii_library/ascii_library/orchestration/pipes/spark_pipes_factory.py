@@ -88,7 +88,7 @@ def spark_pipes_asset_factory(  # noqa: C901
         PipesSubprocessClient,
         PipesDatabricksEnhancedClient,
         PipesEmrEnhancedClient,
-    ] = spark_pipes_client.get_spark_pipes_client()
+    ] = spark_pipes_client.get_spark_pipes_client(override_default_engine)
     if override_default_engine is not None:
         engine_to_use = override_default_engine
     else:
