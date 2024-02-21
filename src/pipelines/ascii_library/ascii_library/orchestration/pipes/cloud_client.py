@@ -80,6 +80,7 @@ class _PipesBaseCloudClient(PipesClient):
             self.filesystem = ""
         else:
             self.filesystem = "dbfs"
+            self._tagging_client = kwargs.get("tagging_client")
 
     @retry(
         stop=stop_after_delay(20) | stop_after_attempt(10),
@@ -142,12 +143,15 @@ class _PipesBaseCloudClient(PipesClient):
             return True
 
     def _poll_till_success(self, **kwargs):
+        self._tagging_client = kwargs.get("tagging_client")
         cont = True
+        self.engine = kwargs.get("extras")["engine"]
+        self.executionMode = kwargs.get("extras")["execution_mode"]
         while cont:
             if not hasattr(self.main_client, "dbfs"):
                 cont = self._handle_emr_polling(kwargs.get("cluster_id"))
             elif hasattr(self.main_client, "dbfs"):
-                cont = self._handle_dbr_polling(kwargs.get("run_id"))
+                cont = self._handle_dbr_polling(run_id=kwargs.get("run_id"))
             time.sleep(self.poll_interval_seconds)
 
     def _handle_terminated_state_emr(self, job_flow, description, state):
@@ -160,6 +164,30 @@ class _PipesBaseCloudClient(PipesClient):
             return True
 
     def _handle_terminated_state_dbr(self, run):
+
+        resources = self._tagging_client.get_resources(
+            TagFilters=[
+                {
+                    "Key": "JobId",
+                    "Values": [
+                        str(run.job_id),
+                    ],
+                },
+            ]
+        )
+        resource_arns = [
+            item["ResourceARN"] for item in resources["ResourceTagMappingList"]
+        ]
+        if len(resource_arns) > 0:
+            for arn in resource_arns:
+                self._tagging_client.tag_resources(
+                    ResourceARNList=[arn],
+                    Tags={
+                        "jobId": str(run.job_id),
+                        "engine": self.engine,
+                        "executionMode": self.executionMode,
+                    },
+                )
         if run.state.result_state == jobs.RunResultState.SUCCESS:
             return False
         else:

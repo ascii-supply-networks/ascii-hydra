@@ -79,18 +79,12 @@ class SparkScriptPipes(ABC):
             raise ValueError(f"Invalid Execution mode: {execution_mode.value}")
 
     def __init__(self):
-        # pipes context is initialized only later
-        # we must initialize it already with the right context injector - so we need to figure that one out without pipes
-        # TODO: we must support EMR find a better way to do this
-        # engine = Engine(os.environ.get("SPARK_PIPES_ENGINE", "databricks"))
         engine = Engine(os.environ.get("SPARK_PIPES_ENGINE", "pyspark"))
         loader, writer, envvar = self.get_loader_writer(engine)
         with open_dagster_pipes(
             context_loader=loader, message_writer=writer, params_loader=envvar
         ):
             context = PipesContext.get()
-
-            # engine = Engine(context.get_extra("engine"))
             execution_mode = ExecutionMode(context.get_extra("execution_mode"))  # type: ignore
             partition_key: Optional[str] = context.get_extra("partition_key")  # type: ignore
 

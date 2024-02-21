@@ -245,7 +245,11 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                     get_dagster_logger().debug(f"EMR configuration: {job_flow}")
                     self._emr_client.add_tags(
                         ResourceId=job_flow["JobFlowId"],
-                        Tags=[{"Key": "key_prefix", "Value": self._key_prefix}],
+                        Tags=[
+                            {"Key": "jobId", "Value": job_flow["JobFlowId"]},
+                            {"Key": "executionMode", "Value": extras["execution_mode"]},
+                            {"Key": "engine", "Value": extras["engine"]},
+                        ],
                     )
                     self._emr_client.add_job_flow_steps(
                         JobFlowId=job_flow["JobFlowId"],
