@@ -145,8 +145,9 @@ class _PipesBaseCloudClient(PipesClient):
     def _poll_till_success(self, **kwargs):
         self._tagging_client = kwargs.get("tagging_client")
         cont = True
-        self.engine = kwargs.get("extras")["engine"]
-        self.executionMode = kwargs.get("extras")["execution_mode"]
+        if kwargs.get("extras") is not None:
+            self.engine = kwargs.get("extras")["engine"]
+            self.executionMode = kwargs.get("extras")["execution_mode"]
         while cont:
             if not hasattr(self.main_client, "dbfs"):
                 cont = self._handle_emr_polling(kwargs.get("cluster_id"))
