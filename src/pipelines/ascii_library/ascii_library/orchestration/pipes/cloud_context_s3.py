@@ -18,7 +18,6 @@ from dagster_pipes import (
 _CONTEXT_FILENAME = "context.json"
 
 
-# TODO: can this be done with PipesContextInjector?
 @experimental
 class PipesS3ContextInjector(PipesContextInjector):
     """A context injector that injects context by writing to a temporary S3 location.

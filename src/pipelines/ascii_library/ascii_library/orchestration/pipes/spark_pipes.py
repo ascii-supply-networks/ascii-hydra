@@ -37,6 +37,7 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
 
             return PipesSubprocessClient()
         elif engine_to_use == Engine.Databricks:
+            import boto3
             from ascii_library.orchestration.pipes.databricks import (
                 PipesDatabricksEnhancedClient,
             )
@@ -46,7 +47,17 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
                 host=os.environ.get("DATABRICKS_HOST", "dummy"),
                 token=os.environ.get("DATABRICKS_TOKEN", "dummy"),
             )
-            return PipesDatabricksEnhancedClient(workspace_client)
+            tagging_client = boto3.client(
+                "resourcegroupstaggingapi",
+                aws_access_key_id=os.environ.get("ASCII_AWS_ACCESS_KEY_ID", "dummy"),
+                aws_secret_access_key=os.environ.get(
+                    "ASCII_AWS_SECRET_ACCESS_KEY", "dummy"
+                ),
+                region_name="us-east-1",
+            )
+            return PipesDatabricksEnhancedClient(
+                client=workspace_client, tagging_client=tagging_client
+            )
         elif engine_to_use == Engine.EMR:
             import boto3
             from ascii_library.orchestration.pipes.emr import PipesEmrEnhancedClient

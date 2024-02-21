@@ -194,7 +194,6 @@ def spark_pipes_asset_factory(  # noqa: C901
             "execution_mode": spark_pipes_client.execution_mode.value,
             "engine": engine_to_use.value,
         }
-        # TODO check if we have to update dagster that context.has_asset_partitions() dpesn't work
         if partitions_def is not None:
             client_params["partition_key"] = context.partition_key
             job_name = f"{name}_{deployment_env}_{spark_pipes_client.execution_mode.value}_{context.partition_key}"

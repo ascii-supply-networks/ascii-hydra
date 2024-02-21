@@ -9,6 +9,7 @@ from ascii_library.orchestration.pipes.cloud_reader_writer import (
     PipesDbfsLogReader,
     PipesDbfsMessageReader,
 )
+from boto3 import client
 from dagster._annotations import experimental
 from dagster._core.definitions.resource_annotation import ResourceParam
 from dagster._core.errors import DagsterExecutionInterruptedError
@@ -51,6 +52,7 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
     def __init__(
         self,
         client: WorkspaceClient,
+        tagging_client=client,
         context_injector: Optional[PipesContextInjector] = None,
         message_reader: Optional[PipesMessageReader] = None,
         forward_termination: bool = True,
@@ -59,6 +61,7 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
             main_client=client,
             context_injector=context_injector,
             message_reader=message_reader,
+            tagging_client=tagging_client,
         )
         self.client = client
         self.context_injector = check.opt_inst_param(
@@ -161,7 +164,6 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
                 **(env or {}),
                 **pipes_session.get_bootstrap_env_vars(),
             }
-
             task = jobs.SubmitTask.from_dict(submit_task_dict)
             run_id = self.client.jobs.submit(
                 run_name=extras.get("job_name"),  # type: ignore
@@ -172,7 +174,9 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
                 f"Databricks url: {self.client.jobs.get_run(run_id).run_page_url}"
             )
             try:
-                self._poll_till_success(run_id=run_id)
+                self._poll_till_success(
+                    run_id=run_id, extras=extras, tagging_client=self._tagging_client
+                )
             except DagsterExecutionInterruptedError:
                 if self.forward_termination:
                     context.log.info(
@@ -181,7 +185,6 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
                     self.client.jobs.cancel_run(run_id)
                     self._poll_til_terminating(run_id)
                 raise
-
         return PipesClientCompletedInvocation(pipes_session)
 
     def _poll_til_terminating(self, run_id: str) -> None:
