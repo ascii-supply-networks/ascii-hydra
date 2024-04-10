@@ -63,6 +63,7 @@ def spark_pipes_asset_factory(  # noqa: C901
     spark_pipes_client: SparkPipesResource,
     external_script_file: str,
     partitions_def: Optional[PartitionsDefinition] = None,
+    cfg=None,  # Optional[Config]
     deps: Optional[Sequence[AssetsDefinition]] = None,
     group_name: Optional[str] = None,
     local_spark_config: Optional[Mapping[str, str]] = None,
@@ -95,17 +96,40 @@ def spark_pipes_asset_factory(  # noqa: C901
         engine_to_use = spark_pipes_client.engine
 
     # TODO: auto upload is a convenience feature for now in the future this should be a CI pipeline step with a defined version - this task should only be executed once on ci build and not per each task
-    @asset(
-        name=name,
-        compute_kind=engine_to_use.value,
-        deps=deps,
-        partitions_def=partitions_def,
-        group_name=group_name,
-        key_prefix=key_prefix,
-    )
-    def inner_spark_pipes_asset(context: AssetExecutionContext) -> MaterializeResult:
-        client_params = handle_shared_parameters(context)
+    if cfg is None:
 
+        @asset(
+            name=name,
+            compute_kind=engine_to_use.value,
+            deps=deps,
+            partitions_def=partitions_def,
+            group_name=group_name,
+            key_prefix=key_prefix,
+        )
+        def inner_spark_pipes_asset(
+            context: AssetExecutionContext,
+        ) -> MaterializeResult:
+            client_params = handle_shared_parameters(context, {})
+            return handle_pipeline_modes(context, client_params)  # type: ignore
+
+    else:
+
+        @asset(
+            name=name,
+            compute_kind=engine_to_use.value,
+            deps=deps,
+            partitions_def=partitions_def,
+            group_name=group_name,
+            key_prefix=key_prefix,
+        )
+        def inner_spark_pipes_asset(
+            context: AssetExecutionContext,
+            config: cfg,
+        ) -> MaterializeResult:
+            client_params = handle_shared_parameters(context, config)
+            return handle_pipeline_modes(context, client_params)  # type: ignore
+
+    def handle_pipeline_modes(context: AssetExecutionContext, client_params):
         if engine_to_use == Engine.Local:
             return handle_local(client_params, context)  # type: ignore
         elif engine_to_use == Engine.Databricks:
@@ -189,10 +213,11 @@ def spark_pipes_asset_factory(  # noqa: C901
             extras=client_params,
         ).get_materialize_result()
 
-    def handle_shared_parameters(context):
+    def handle_shared_parameters(context, cfg):
         client_params = {
             "execution_mode": spark_pipes_client.execution_mode.value,
             "engine": engine_to_use.value,
+            "config": dict(cfg),  # type: ignore
         }
         if partitions_def is not None:
             client_params["partition_key"] = context.partition_key
