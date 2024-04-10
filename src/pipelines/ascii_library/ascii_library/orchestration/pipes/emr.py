@@ -130,14 +130,13 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         configs = cluster_config.get("Configurations", [])
         i = 0
         for config in configs:
-            if config.get("Classification") == "spark-env":
-                props = config.get("Configurations")[0].get("Properties")
-                props[key] = value
+            if config.get("Classification") == "spark-defaults":
+                props = config.get("Properties")
+                # props = config.get("Configurations")[0].get("Properties")
+                props[f"spark.yarn.appMasterEnv.{key}"] = value
                 # props[f"spark.executorEnv.{key}"] = value
                 # props[f"spark.yarn.appMasterEnv.{key}"] = value
-                cluster_config["Configurations"][i]["Configurations"][0][
-                    "Properties"
-                ] = props
+                cluster_config["Configurations"][i]["Properties"] = props
             i += 1
         return cluster_config
 
@@ -254,6 +253,12 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                     self._emr_client.add_job_flow_steps(
                         JobFlowId=job_flow["JobFlowId"],
                         Steps=[extras.get("step_config")],
+                    )
+                    get_dagster_logger().info(
+                        "If not sign in on Rackspace, please do it now: https://manage.rackspace.com/aws/account/018967853140/consoleSignin"
+                    )
+                    get_dagster_logger().info(
+                        f"EMR url: https://us-east-1.console.aws.amazon.com/emr/home?region=us-east-1#/clusterDetails/{job_flow['JobFlowId']}"
                     )
                     self._poll_till_success(cluster_id=job_flow["JobFlowId"])
             except DagsterExecutionInterruptedError:

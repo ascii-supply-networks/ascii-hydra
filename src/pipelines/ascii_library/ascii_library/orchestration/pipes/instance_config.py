@@ -12,6 +12,10 @@ class CloudInstanceConfig:
         self.market = kwargs.get("Market")
         self.name = kwargs.get("Name")
         self.instanceType = kwargs.get("InstanceType")
+        self.workerInstanceType = kwargs.get(
+            "WorkerInstanceType", kwargs.get("InstanceType")
+        )
+
         self.bidPrice = kwargs.get("BidPrice")
         self.customAmiId = kwargs.get("CustomAmiId")
         self.sizeInGB = kwargs.get("SizeInGB", emr_constants.sizeInGB)
@@ -21,6 +25,15 @@ class CloudInstanceConfig:
         )
         self.ebsOptimized = kwargs.get("EbsOptimized")
         self.instanceCount = kwargs.get("InstanceCount")
+        self.masterInstanceCount = kwargs.get(
+            "MasterInstanceCount", kwargs.get("InstanceCount", 1)
+        )
+        self.coreInstanceCount = kwargs.get(
+            "CoreInstanceCount", kwargs.get("InstanceCount", 1)
+        )
+        self.taskInstanceCount = kwargs.get(
+            "TaskInstanceCount", kwargs.get("InstanceCount", 1)
+        )
         self.percentageOfOnDemandPrice = kwargs.get(
             "PercentageOfOnDemandPrice", emr_constants.percentageOfOnDemandPrice
         )
@@ -146,23 +159,20 @@ class CloudInstanceConfig:
             "Name": self.name,
         }
 
-    def _add_bid_price(self, config, index: int = 0):
-        if (
-            self.market == emr_constants.Market.spot
-            and self.bidPrice[index] is not None
-        ):
-            config["BidPrice"] = self.bidPrice[index]
+    def _add_bid_price(self, config):
+        if self.market == emr_constants.Market.spot and self.bidPrice is not None:
+            config["BidPrice"] = self.bidPrice
 
     def _add_custom_ami_id(self, config, index: int = 0):
         if self.customAmiId[index] is not None:
             config["CustomAmiId"] = self.customAmiId[index]
 
     def _add_ebs_configuration(self, config):
-        if self._is_ebs_configuration_valid():
-            ebsConfiguration = {"EbsOptimized": self.ebsOptimized}
-            ebsBlockDeviceConfigs = self._build_ebs_block_device_config()
-            ebsConfiguration["EbsBlockDeviceConfigs"] = ebsBlockDeviceConfigs
-            config["EbsConfiguration"] = ebsConfiguration
+        # if self._is_ebs_configuration_valid():
+        ebsConfiguration = {"EbsOptimized": self.ebsOptimized}
+        ebsBlockDeviceConfigs = self._build_ebs_block_device_config()
+        ebsConfiguration["EbsBlockDeviceConfigs"] = ebsBlockDeviceConfigs
+        config["EbsConfiguration"] = ebsConfiguration
 
     def _is_ebs_configuration_valid(self):
         return (
@@ -170,10 +180,18 @@ class CloudInstanceConfig:
         )
 
     def _build_ebs_block_device_config(self, index: int = 0):
+        volume_size = (
+            self.sizeInGB if isinstance(self.sizeInGB, int) else self.sizeInGB[index]
+        )
+        volume_type = (
+            self.volumeType
+            if isinstance(self.volumeType, emr_constants.VolumeType)
+            else self.volumeType[index]
+        )
         block = {
             "VolumeSpecification": {
-                "SizeInGB": self.sizeInGB[index],
-                "VolumeType": self.volumeType[index].value,
+                "SizeInGB": volume_size,
+                "VolumeType": volume_type.value,
             }
         }
         block["VolumesPerInstance"] = self.volumesPerInstance[index]
@@ -465,7 +483,6 @@ class CloudInstanceConfig:
             ReservationPreference=self.reservationPreference,
             TimeoutDuration=self.timeoutDuration,
         )
-
         task_config = CloudInstanceConfig(
             InstanceRole=emr_constants.InstanceRole.task.value,
             Market=emr_constants.Market.spot.value,
@@ -512,4 +529,52 @@ class CloudInstanceConfig:
             master_config.get_fleet_config(),
             core_config.get_fleet_config(),
             task_config.get_fleet_config(),
+        ]
+
+    def get_group_default(self):
+        master_config = CloudInstanceConfig(
+            InstanceRole=emr_constants.InstanceRole.master,
+            Market=emr_constants.Market.on_demand,
+            Name="Master Group",
+            CustomAmiId=[self.customAmiId],
+            InstanceType=self.instanceType,
+            InstanceCount=self.masterInstanceCount,
+            BidPrice=self.bidPrice,
+            SizeInGB=[self.sizeInGB],
+            VolumeType=[self.volumeType],
+            VolumesPerInstance=[self.volumesPerInstance],
+            EbsOptimized=self.ebsOptimized if self.ebsOptimized is not None else True,
+        )
+
+        core_config = CloudInstanceConfig(
+            InstanceRole=emr_constants.InstanceRole.core,
+            Market=emr_constants.Market.on_demand,
+            Name="Core Group",
+            CustomAmiId=[self.customAmiId],
+            InstanceType=self.workerInstanceType,
+            InstanceCount=self.coreInstanceCount,
+            BidPrice=self.bidPrice,
+            SizeInGB=[self.sizeInGB],
+            VolumeType=[self.volumeType],
+            VolumesPerInstance=[self.volumesPerInstance],
+            EbsOptimized=self.ebsOptimized if self.ebsOptimized is not None else True,
+        )
+
+        task_config = CloudInstanceConfig(
+            InstanceRole=emr_constants.InstanceRole.task,
+            Market=emr_constants.Market.spot,
+            Name="Task Group",
+            CustomAmiId=[self.customAmiId],
+            InstanceType=self.workerInstanceType,
+            InstanceCount=self.taskInstanceCount,
+            BidPrice=self.bidPrice,
+            SizeInGB=[self.sizeInGB],
+            VolumeType=[self.volumeType],
+            VolumesPerInstance=[self.volumesPerInstance],
+            EbsOptimized=self.ebsOptimized if self.ebsOptimized is not None else True,
+        )
+        return [
+            master_config.get_instance_config(),
+            core_config.get_instance_config(),
+            task_config.get_instance_config(),
         ]
