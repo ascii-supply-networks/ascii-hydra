@@ -1,6 +1,6 @@
 import sys
 import time
-from typing import List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 import dagster._check as check
 from ascii_library.orchestration.pipes.cloud_client import _PipesBaseCloudClient
@@ -111,6 +111,45 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
             log_readers=log_readers,
         )
 
+    def _prepare_environment(
+        self,
+        local_file_path: str,
+        dbfs_path: str,
+        libraries_to_build_and_upload: Optional[List[str]],
+    ) -> None:
+        """Prepare the environment by uploading files and ensuring libraries are available."""
+        self._upload_file_to_cloud(
+            local_file_path=local_file_path, cloud_path=dbfs_path
+        )
+        self._ensure_library_on_cloud(
+            libraries_to_build_and_upload=libraries_to_build_and_upload
+        )
+
+    def _process_submit_args(
+        self, submit_args: Optional[Mapping[str, Any]]
+    ) -> Dict[str, Any]:
+        """Process submit_args to ensure they are of the allowed types."""
+        if not submit_args:
+            return {}
+
+        allowed_types = (
+            list,
+            jobs.JobEmailNotifications,
+            jobs.GitSource,
+            jobs.JobsHealthRules,
+            jobs.JobNotificationSettings,
+            jobs.QueueSettings,
+            int,
+            jobs.WebhookNotifications,
+        )
+        submit_kwargs = {}
+        for key, value in submit_args.items():
+            if isinstance(value, allowed_types):
+                submit_kwargs[key] = value
+            else:
+                raise TypeError(f"Unexpected type for submit_arg {key}: {type(value)}")
+        return submit_kwargs
+
     def run(  # type: ignore
         self,
         *,
@@ -143,13 +182,10 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
         """
         run_id = None
         pipes_session = None
-
-        self._upload_file_to_cloud(
-            local_file_path=local_file_path, cloud_path=dbfs_path
+        self._prepare_environment(
+            local_file_path, dbfs_path, libraries_to_build_and_upload
         )
-        self._ensure_library_on_cloud(
-            libraries_to_build_and_upload=libraries_to_build_and_upload
-        )
+        submit_kwargs = self._process_submit_args(submit_args)
 
         message_reader = self.message_reader or self.get_default_message_reader(task)
         with open_pipes_session(
@@ -168,7 +204,7 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
             run_id = self.client.jobs.submit(
                 run_name=extras.get("job_name"),  # type: ignore
                 tasks=[task],
-                **(submit_args or {}),
+                **(submit_kwargs or {}),
             ).bind()["run_id"]
             context.log.info(
                 f"Databricks url: {self.client.jobs.get_run(run_id).run_page_url}"
@@ -190,13 +226,19 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
     def _poll_til_terminating(self, run_id: str) -> None:
         # Wait to see the job enters a state that indicates the underlying task is no longer executing
         # TERMINATING: "The task of this run has completed, and the cluster and execution context are being cleaned up."
+        run_id_int = int(run_id)
         while True:
-            run = self.client.jobs.get_run(run_id)
-            if run.state.life_cycle_state in (
-                jobs.RunLifeCycleState.TERMINATING,
-                jobs.RunLifeCycleState.TERMINATED,
-                jobs.RunLifeCycleState.SKIPPED,
-                jobs.RunLifeCycleState.INTERNAL_ERROR,
+            run = self.client.jobs.get_run(run_id_int)
+            if (
+                run
+                and run.state
+                and run.state.life_cycle_state
+                in (
+                    jobs.RunLifeCycleState.TERMINATING,
+                    jobs.RunLifeCycleState.TERMINATED,
+                    jobs.RunLifeCycleState.SKIPPED,
+                    jobs.RunLifeCycleState.INTERNAL_ERROR,
+                )
             ):
                 return
 
