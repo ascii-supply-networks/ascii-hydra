@@ -94,9 +94,10 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         dagster_deployment = get_dagster_deployment_environment()
         content = StringIO()
         content.write("#!/bin/bash\n")
-
         if libraries is not None:
             content.write("sudo pip install --upgrade pip\n")
+            content.write("sudo pip uninstall -y py-dateutil\n")
+
             for lib in libraries:
                 if lib.kind == LibraryKind.Wheel:
                     self.handle_wheel(bucket, content, lib)
