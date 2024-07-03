@@ -180,8 +180,6 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
             PipesClientCompletedInvocation: Wrapper containing results reported by the external
                 process.
         """
-        run_id = None
-        pipes_session = None
         self._prepare_environment(
             local_file_path, dbfs_path, libraries_to_build_and_upload
         )
