@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-dagster_version = ">=1.7.0,<1.8"
+dagster_version = ">=1.7.12,<1.8"
 
 
 setup(

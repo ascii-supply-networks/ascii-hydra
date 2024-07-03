@@ -70,7 +70,7 @@ class PartitionedParquetIOManager(ConfigurableIOManager):  # type: ignore
             return self.pyspark.spark_session.read.parquet(path)
         if context.dagster_type.typing_type == pd.DataFrame:
             return pd.read_parquet(path, storage_options=self._storage_options)
-        if context.dagster_type.typing_type == str:
+        if context.dagster_type.typing_type is str:
             return path
         return check.failed(
             f"Inputs of type {context.dagster_type} not supported. Please specify a valid type "
