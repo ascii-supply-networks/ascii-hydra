@@ -1,5 +1,4 @@
 import os
-import time
 from contextlib import contextmanager
 from typing import Any, Iterator, Optional, Sequence
 
@@ -36,7 +35,6 @@ class PipesS3MessageReader(PipesBlobStoreMessageReader):
         key_prefix: str,
         client: client,
         log_readers: Optional[Sequence[PipesLogReader]] = None,
-        mock: Optional[bool] = False,
     ):
         super().__init__(
             interval=interval,
@@ -46,29 +44,19 @@ class PipesS3MessageReader(PipesBlobStoreMessageReader):
         self.bucket = check.str_param(bucket, "bucket")
         self.client = client
         self.last_index = 0
-        self.mock = mock
 
     @contextmanager
     def get_params(self) -> Iterator[PipesParams]:
         yield {"bucket": self.bucket, "key_prefix": self.key_prefix}
 
     def download_messages_chunk(self, index: int, params: PipesParams) -> Optional[str]:
-        if self.mock:
-            key = f"./ascii_library/ascii_library/orchestration/resources/{params['key_prefix']}/{index}.json"
-            response = None
-            try:
-                response = open(key).read()
-                time.sleep(self.interval)
-            except Exception:
-                pass
-        else:
-            key = f"{params['key_prefix']}/{index}.json"
-            response = None
-            try:
-                obj = self.client.get_object(Bucket=self.bucket, Key=key)
-                response = obj["Body"].read().decode("utf-8")
-            except ClientError:
-                pass
+        key = f"{params['key_prefix']}/{index}.json"
+        response = None
+        try:
+            obj = self.client.get_object(Bucket=self.bucket, Key=key)
+            response = obj["Body"].read().decode("utf-8")
+        except ClientError:
+            pass
         return response
 
     def no_messages_debug_text(self) -> str:
@@ -88,12 +76,11 @@ class PipesS3MessageWriter(PipesBlobStoreMessageWriter):
     """
 
     # client is a boto3.client("s3") object
-    def __init__(self, client: Any, *, interval: float = 10, mock=bool):
+    def __init__(self, client: Any, *, interval: float = 10):
         super().__init__(interval=interval)
         # Not checking client type for now because it's a boto3.client object and we don't want to
         # depend on boto3.
         self._client = client
-        self.mock = mock
 
     def make_channel(
         self,
@@ -101,8 +88,6 @@ class PipesS3MessageWriter(PipesBlobStoreMessageWriter):
     ) -> "PipesS3MessageWriterChannel":
         bucket = os.environ["bucket"]
         key = os.environ["key"]
-        if self.mock:
-            return None
         return PipesS3MessageWriterChannel(
             client=self._client,
             bucket=bucket,

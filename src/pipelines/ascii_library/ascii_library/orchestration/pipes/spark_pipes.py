@@ -1,7 +1,10 @@
 import os
+import warnings
 
 from ascii_library.orchestration.pipes import Engine, ExecutionMode
-from dagster import ConfigurableResource
+from dagster import ConfigurableResource, ExperimentalWarning
+
+warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
 
 class SparkPipesResource(ConfigurableResource):  # type: ignore

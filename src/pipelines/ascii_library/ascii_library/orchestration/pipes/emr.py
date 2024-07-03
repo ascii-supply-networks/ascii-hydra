@@ -9,12 +9,13 @@ from ascii_library.orchestration.pipes.cloud_context_s3 import PipesS3ContextInj
 from ascii_library.orchestration.pipes.cloud_reader_writer_s3 import (
     PipesS3MessageReader,
 )
-from ascii_library.orchestration.pipes.emr_constants import mock, pipeline_bucket
 from ascii_library.orchestration.pipes.instance_config import CloudInstanceConfig
 from ascii_library.orchestration.pipes.utils import (
     library_from_dbfs_paths,
     library_to_cloud_paths,
 )
+from ascii_library.orchestration.resources.constants import aws_region, rackspace_user
+from ascii_library.orchestration.resources.emr_constants import pipeline_bucket
 from ascii_library.orchestration.resources.utils import (
     get_dagster_deployment_environment,
 )
@@ -53,7 +54,6 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         bucket: str,
         context_injector: Optional[PipesContextInjector] = None,
         message_reader: Optional[PipesMessageReader] = None,
-        mock: Optional[bool] = mock,
     ):
         super().__init__(
             main_client=emr_client,
@@ -72,18 +72,14 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         #    emr_client=emr_client,
         #    check_cluster_every=check_cluster_every,
         # )
-        if mock:
-            key_prefix = "mock_logs"
-        else:
-            key_prefix = "".join(random.choices(string.ascii_letters, k=30))
+        key_prefix = "".join(random.choices(string.ascii_letters, k=30))
         self._key_prefix = key_prefix
         self._context_injector = context_injector or PipesS3ContextInjector(
             bucket=bucket, client=s3_client, key_prefix=key_prefix
         )
         self._message_reader = message_reader or PipesS3MessageReader(
-            bucket=bucket, key_prefix=key_prefix, client=s3_client, mock=mock
+            bucket=bucket, key_prefix=key_prefix, client=s3_client
         )
-        self.mock = mock
 
     def create_bootstrap_script(
         self,
@@ -95,9 +91,9 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         content = StringIO()
         content.write("#!/bin/bash\n")
         if libraries is not None:
-            content.write("sudo pip install --upgrade pip\n")
-            content.write("sudo pip uninstall -y py-dateutil\n")
-
+            content.write("sudo yum update -y\n")
+            content.write("sudo yum install -y python3 python3-pip\n")
+            content.write("sudo pip3 uninstall -y py-dateutil\n")
             for lib in libraries:
                 if lib.kind == LibraryKind.Wheel:
                     self.handle_wheel(bucket, content, lib)
@@ -152,26 +148,23 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         libraries: Optional[List[LibraryConfig]] = None,
         extras: Optional[PipesExtras] = None,
     ):
-        if self.mock is not True:
-            self._upload_file_to_cloud(
-                local_file_path=local_file_path, bucket=bucket, cloud_path=s3_path
+        self._upload_file_to_cloud(
+            local_file_path=local_file_path, bucket=bucket, cloud_path=s3_path
+        )
+        if libraries_to_build_and_upload is not None:
+            self._ensure_library_on_cloud(
+                libraries_to_build_and_upload=libraries_to_build_and_upload
             )
-            if libraries_to_build_and_upload is not None:
-                self._ensure_library_on_cloud(
-                    libraries_to_build_and_upload=libraries_to_build_and_upload
-                )
-                destination = self.create_bootstrap_script(libraries=libraries)
-                emr_job_config["BootstrapActions"] = [
-                    {
-                        "Name": "Install custom packages",
-                        "ScriptBootstrapAction": {"Path": destination},
-                    }
-                ]
+            destination = self.create_bootstrap_script(libraries=libraries)
+            emr_job_config["BootstrapActions"] = [
+                {
+                    "Name": "Install custom packages",
+                    "ScriptBootstrapAction": {"Path": destination},
+                }
+            ]
         if extras:
             extras["emr_job_config"] = emr_job_config
             extras["step_config"] = step_config
-        else:
-            extras = {"emr_job_config": emr_job_config, "step_config": step_config}
         return extras, emr_job_config
 
     def run(  # type: ignore
@@ -231,37 +224,28 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             emr_job_config = self.modify_env_var(
                 cluster_config=emr_job_config, key="key", value=self._key_prefix
             )
-            emr_job_config = self.modify_env_var(
-                cluster_config=emr_job_config, key="mock", value=str(self.mock)
-            )
             try:
-                if self.mock:
-                    get_dagster_logger().info(
-                        f"it's mocking: data is at {self._key_prefix}"
-                    )
-                    self._poll_till_success(cluster_id=self._key_prefix)
-                else:
-                    job_flow = self._emr_client.run_job_flow(**emr_job_config)
-                    get_dagster_logger().debug(f"EMR configuration: {job_flow}")
-                    self._emr_client.add_tags(
-                        ResourceId=job_flow["JobFlowId"],
-                        Tags=[
-                            {"Key": "jobId", "Value": job_flow["JobFlowId"]},
-                            {"Key": "executionMode", "Value": extras["execution_mode"]},
-                            {"Key": "engine", "Value": extras["engine"]},
-                        ],
-                    )
-                    self._emr_client.add_job_flow_steps(
-                        JobFlowId=job_flow["JobFlowId"],
-                        Steps=[extras.get("step_config")],
-                    )
-                    get_dagster_logger().info(
-                        "If not sign in on Rackspace, please do it now: https://manage.rackspace.com/aws/account/018967853140/consoleSignin"
-                    )
-                    get_dagster_logger().info(
-                        f"EMR url: https://us-east-1.console.aws.amazon.com/emr/home?region=us-east-1#/clusterDetails/{job_flow['JobFlowId']}"
-                    )
-                    self._poll_till_success(cluster_id=job_flow["JobFlowId"])
+                job_flow = self._emr_client.run_job_flow(**emr_job_config)
+                get_dagster_logger().debug(f"EMR configuration: {job_flow}")
+                self._emr_client.add_tags(
+                    ResourceId=job_flow["JobFlowId"],
+                    Tags=[
+                        {"Key": "jobId", "Value": job_flow["JobFlowId"]},
+                        {"Key": "executionMode", "Value": extras["execution_mode"]},
+                        {"Key": "engine", "Value": extras["engine"]},
+                    ],
+                )
+                self._emr_client.add_job_flow_steps(
+                    JobFlowId=job_flow["JobFlowId"],
+                    Steps=[extras.get("step_config")],
+                )
+                get_dagster_logger().info(
+                    f"If not sign in on Rackspace, please do it now: https://manage.rackspace.com/aws/account/{rackspace_user}/consoleSignin"
+                )
+                get_dagster_logger().info(
+                    f"EMR url: https://{aws_region}.console.aws.amazon.com/emr/home?region={aws_region}#/clusterDetails/{job_flow['JobFlowId']}"
+                )
+                self._poll_till_success(cluster_id=job_flow["JobFlowId"])
             except DagsterExecutionInterruptedError:
                 context.log.info("[pipes] execution interrupted, canceling EMR job.")
                 self._emr_client.terminate_job_flows(JobFlowIds=[job_flow["JobFlowId"]])

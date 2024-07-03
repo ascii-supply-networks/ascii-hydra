@@ -2,6 +2,7 @@ import glob
 import os
 import subprocess
 
+from ascii_library.orchestration.pipes import ExecutionMode
 from ascii_library.orchestration.resources.utils import (
     get_dagster_deployment_environment,
 )
@@ -43,3 +44,52 @@ def package_library(mylib_path):
         return wheel_path, package_name
     else:
         raise FileNotFoundError("No wheel file found in the dist directory.")
+
+
+def get_input_path(io_nodes, part_seed, part_cc, lang):
+    if lang == "all":
+        return f"{io_nodes}/seed_nodes={part_seed}/crawl_id={part_cc}/main_language=*"
+    else:
+        return (
+            f"{io_nodes}/seed_nodes={part_seed}/crawl_id={part_cc}/main_language={lang}"
+        )
+
+
+def calculate_parallelism(spark, input_path):
+    record_count = spark.sparkContext.textFile(input_path).count()
+    spark_max_sensible_paralellism = 90000
+    if record_count >= spark_max_sensible_paralellism:
+        return spark_max_sensible_paralellism
+    else:
+        return max(200, int(record_count / 4))
+
+
+def configure_spark(  # noqa: C901
+    spark,
+    execution_mode,
+    compression_codec,
+    default_parallelism,
+    shuffle_partitions,
+    partitionDiscovery_parallelism,
+):
+    cfgs = [
+        ("spark.sql.parquet.compression.codec", compression_codec),
+        ("spark.sql.files.maxPartitionBytes", 50 * 1024 * 1024),
+        ("spark.databricks.delta.retentionDurationCheck.enabled", "false"),
+        ("spark.databricks.delta.vacuum.parallelDelete.enabled", "true"),
+        ("spark.sql.sources.partitionOverwriteMode", "static"),
+        ("spark.databricks.delta.schema.autoMerge.enabled", "True"),
+        ("spark.databricks.delta.schema.autoMerge.enabledOnWrite", "True"),
+    ]
+    if execution_mode == ExecutionMode.Full:
+        if default_parallelism:
+            cfgs.append(("spark.default.parallelism", default_parallelism))
+        if shuffle_partitions:
+            cfgs.append(("spark.sql.shuffle.partitions", shuffle_partitions))
+        if partitionDiscovery_parallelism:
+            cfgs.append(
+                ("spark.sql.shuffle.partitions", partitionDiscovery_parallelism)
+            )
+
+    for item in cfgs:
+        spark.conf.set(item[0], item[1])  # type: ignore
