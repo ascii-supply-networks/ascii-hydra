@@ -6,7 +6,7 @@ from typing import List, Optional, Union
 
 import boto3
 import dagster._check as check
-from ascii_library.orchestration.pipes.emr_constants import pipeline_bucket
+from ascii_library.orchestration.resources.emr_constants import pipeline_bucket
 from botocore.exceptions import (
     ClientError,
     ConnectionError,

@@ -30,13 +30,12 @@ class PipesS3ContextInjector(PipesContextInjector):
 
     """
 
-    def __init__(self, *, bucket: str, client: client, key_prefix: str, mock=bool):
+    def __init__(self, *, bucket: str, client: client, key_prefix: str):
         super().__init__()
         self.bucket = check.str_param(bucket, "bucket")
         self.client = client
         self.key_prefix = key_prefix
         self.key = os.path.join(key_prefix, _CONTEXT_FILENAME)
-        self.mock = bool
 
     @contextmanager
     def inject_context(self, context: "PipesContextData") -> Iterator[PipesParams]:
@@ -44,12 +43,11 @@ class PipesS3ContextInjector(PipesContextInjector):
         context["key"] = self.key_prefix
         get_dagster_logger().debug(json.dumps(context))
         try:
-            if self.mock is not True:
-                self.client.put_object(
-                    Body=json.dumps(context).encode("utf-8"),
-                    Bucket=self.bucket,
-                    Key=self.key,
-                )
+            self.client.put_object(
+                Body=json.dumps(context).encode("utf-8"),
+                Bucket=self.bucket,
+                Key=self.key,
+            )
             yield {"bucket": self.bucket, "key": self.key_prefix}
         finally:
             self.clean_s3_context(key=self.key_prefix)
@@ -112,19 +110,12 @@ class PipesS3ContextLoader(PipesContextLoader):
         client (Any): A boto3.client("s3") object.
     """
 
-    def __init__(self, client: Any, mock: bool):
+    def __init__(self, client: Any):
         self._client = client
-        self.mock = bool
 
     @contextmanager
     def load_context(self, params: PipesParams) -> Iterator[PipesContextData]:
         bucket = os.environ["bucket"]
-        mock = os.environ["mock"] == str(True)
-        if mock:
-            key = f"./ascii_library/ascii_library/orchestration/resources/{os.environ['key']}/{_CONTEXT_FILENAME}"
-            f = open(key).read()
-            yield json.loads(f)
-        else:
-            key = f"{os.environ['key']}/{_CONTEXT_FILENAME}"
-            obj = self._client.get_object(Bucket=bucket, Key=key)
-            yield json.loads(obj["Body"].read().decode("utf-8"))
+        key = f"{os.environ['key']}/{_CONTEXT_FILENAME}"
+        obj = self._client.get_object(Bucket=bucket, Key=key)
+        yield json.loads(obj["Body"].read().decode("utf-8"))

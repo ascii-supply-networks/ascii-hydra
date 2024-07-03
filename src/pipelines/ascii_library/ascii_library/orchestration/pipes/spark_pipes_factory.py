@@ -5,9 +5,9 @@ from typing import List, Optional, Sequence, Union
 from ascii_library.orchestration.pipes import LibraryConfig, LibraryKind
 from ascii_library.orchestration.pipes.databricks import PipesDatabricksEnhancedClient
 from ascii_library.orchestration.pipes.emr import PipesEmrEnhancedClient
-from ascii_library.orchestration.pipes.emr_constants import pipeline_bucket
 from ascii_library.orchestration.pipes.instance_config import CloudInstanceConfig
 from ascii_library.orchestration.pipes.spark_pipes import Engine, SparkPipesResource
+from ascii_library.orchestration.resources.emr_constants import pipeline_bucket
 from ascii_library.orchestration.resources.utils import (
     get_dagster_deployment_environment,
 )

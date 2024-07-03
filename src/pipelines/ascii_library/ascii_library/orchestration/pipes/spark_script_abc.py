@@ -3,8 +3,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
-from ascii_library.orchestration.pipes.emr_constants import mock
-from ascii_library.orchestration.pipes.spark_pipes import Engine, ExecutionMode
+from ascii_library.orchestration.pipes import Engine, ExecutionMode
 from dagster_pipes import (
     PipesContext,
     PipesDbfsContextLoader,
@@ -144,8 +143,8 @@ class SparkScriptPipes(ABC):
                 "s3",
                 region_name="us-east-1",
             )
-            loader = PipesS3ContextLoader(client=s3_client, mock=mock)
-            writer = PipesS3MessageWriter(client=s3_client, mock=mock)
+            loader = PipesS3ContextLoader(client=s3_client)
+            writer = PipesS3MessageWriter(client=s3_client)
             envvar = PipesS3EnvVarParamsLoader()
         else:
             raise ValueError(f"Unsupported engine mode: {engine}")

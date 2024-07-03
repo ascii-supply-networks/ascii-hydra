@@ -2,7 +2,7 @@ import json
 import re
 from typing import Any, Dict, Optional, Sequence
 
-from ascii_library.orchestration.pipes import emr_constants
+from ascii_library.orchestration.resources import emr_constants
 from boto3 import client
 
 
