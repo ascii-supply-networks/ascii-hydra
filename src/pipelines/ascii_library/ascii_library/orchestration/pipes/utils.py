@@ -77,7 +77,7 @@ def configure_spark(  # noqa: C901
         ("spark.sql.files.maxPartitionBytes", 50 * 1024 * 1024),
         ("spark.databricks.delta.retentionDurationCheck.enabled", "false"),
         ("spark.databricks.delta.vacuum.parallelDelete.enabled", "true"),
-        ("spark.sql.sources.partitionOverwriteMode", "static"),
+        ("spark.sql.sources.partitionOverwriteMode", "dynamic"),
         ("spark.databricks.delta.schema.autoMerge.enabled", "True"),
         ("spark.databricks.delta.schema.autoMerge.enabledOnWrite", "True"),
     ]
