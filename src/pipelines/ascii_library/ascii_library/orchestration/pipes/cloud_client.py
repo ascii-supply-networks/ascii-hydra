@@ -1,6 +1,4 @@
 import base64
-import select
-import socket
 import time
 from typing import List, Optional, Union
 
@@ -25,8 +23,6 @@ from dagster._core.pipes.client import (
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import DatabricksError
 from databricks.sdk.service import jobs
-from paramiko import AutoAddPolicy, PKey, SSHClient
-from paramiko.transport import Transport
 from tenacity import (
     RetryCallState,
     retry,
@@ -101,9 +97,8 @@ class _PipesBaseCloudClient(PipesClient):
     def _handle_emr_polling(self, cluster_id):
         description = self._retrieve_state_emr(cluster_id)
         state = description["Cluster"]["Status"]["State"]
-        dns = None
-        if description["Cluster"].get("MasterPublicDnsName") and dns is not None:
-            dns = description["Cluster"]["MasterPublicDnsName"]
+        dns = description["Cluster"].get("MasterPublicDnsName")  # Correct this part
+        if dns:
             get_dagster_logger().debug(f"dns: {dns}")
         if state != self.last_observed_state:
             get_dagster_logger().debug(
@@ -138,6 +133,7 @@ class _PipesBaseCloudClient(PipesClient):
             jobs.RunLifeCycleState.SKIPPED,
             jobs.RunLifeCycleState.INTERNAL_ERROR,
         ):
+            get_dagster_logger().debug(f"Handling terminated state for run: {run_id}")
             return self._handle_terminated_state_dbr(run=run)
         else:
             return True
@@ -235,13 +231,13 @@ class _PipesBaseCloudClient(PipesClient):
     def handle_exep(self, e):
         if isinstance(e, FileNotFoundError):
             get_dagster_logger().error("The file was not found")
-            raise
+            raise e
         elif isinstance(e, NoCredentialsError):
             get_dagster_logger().error("Credentials not available")
-            raise
+            raise e
         elif isinstance(e, ClientError):
             get_dagster_logger().error("Client error while uploading")
-            raise
+            raise e
 
     def _upload_file_to_s3(self, local_file_path: str, cloud_path: str, **kwargs):
         bucket = kwargs.get("bucket")
@@ -260,95 +256,3 @@ class _PipesBaseCloudClient(PipesClient):
         get_dagster_logger().debug(
             f"uploading: {local_file_path} to DBFS at: {dbfs_path}"
         )
-
-    def transfer_data(source, destination):
-        """Transfer data from source to destination."""
-        try:
-            data = source.recv(1024)
-            if len(data) == 0:
-                return False  # Signal to close connection
-            destination.send(data)
-            return True
-        except socket.error:
-            return False  # Handle socket errors
-
-    def handle_client_connection(self, client_socket, channel):
-        """Handle the connection for a single client."""
-        try:
-            while self.process_connection(client_socket, channel):
-                pass
-        finally:
-            self.cleanup_connection(client_socket, channel)
-
-    def process_connection(self, client_socket, channel):
-        """Process readable sockets and channels."""
-        readable, _, _ = select.select([client_socket, channel], [], [], 1)
-        if client_socket in readable:
-            if not self.transfer_data(client_socket, channel):
-                return False
-        if channel in readable:
-            if not self.transfer_data(channel, client_socket):
-                return False
-        return True
-
-    def cleanup_connection(self, client_socket, channel):
-        """Clean up resources after connection is closed."""
-        client_socket.close()
-        channel.close()
-
-    def accept_connection(self, local_server):
-        """Accept a new connection."""
-        readable, _, _ = select.select([local_server], [], [], 1)
-        if local_server in readable:
-            return local_server.accept()
-        return None, None
-
-    def create_channel(self, transport, remote_host, remote_port, client_socket):
-        """Create a new channel for the given connection."""
-        try:
-            return transport.open_channel(
-                "direct-tcpip",
-                (remote_host, remote_port),
-                client_socket.getpeername(),
-            )
-        except Exception as e:
-            print(f"Failed to create channel: {e}")
-            return None
-
-    def forward_tunnel(
-        self, local_port: int, remote_host: str, remote_port: int, transport: Transport
-    ):
-        # Create a socket to act as a local server
-        local_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        local_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        local_server.bind(("127.0.0.1", local_port))
-        local_server.listen(100)
-
-        try:
-            while True:
-                client_socket, _ = self.accept_connection(local_server)
-                if client_socket:
-                    channel = self.create_channel(
-                        transport, remote_host, remote_port, client_socket
-                    )
-                    if channel:
-                        self.handle_client_connection(client_socket, channel)
-                    else:
-                        client_socket.close()
-        finally:
-            local_server.close()
-
-    def create_ssh_tunnel(
-        self, key_path: PKey, dns_name: str, local_port: int, remote_port: int
-    ):
-        ssh_client = SSHClient()
-        ssh_client.set_missing_host_key_policy(AutoAddPolicy())
-        ssh_client.connect(hostname=dns_name, username="hadoop", pkey=key_path)
-        transport = ssh_client.get_transport()
-        if transport is None:
-            raise ValueError(
-                "SSH Transport is not available. Connection failed or was not established."
-            )
-
-        # Forward traffic from local port to remote port via SSH tunnel
-        self.forward_tunnel(local_port, dns_name, remote_port, transport)
