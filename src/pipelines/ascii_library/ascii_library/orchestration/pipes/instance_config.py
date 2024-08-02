@@ -35,7 +35,7 @@ class CloudInstanceConfig:
             "TaskInstanceCount", kwargs.get("InstanceCount", 1)
         )
         self.percentageOfOnDemandPrice = kwargs.get(
-            "PercentageOfOnDemandPrice", emr_constants.percentageOfOnDemandPrice
+            "percentageOfOnDemandPrice", emr_constants.percentageOfOnDemandPrice
         )
         self.reservationPreference = kwargs.get("ReservationPreference")
         self.allocationStrategy = kwargs.get("AllocationStrategy")
@@ -50,6 +50,22 @@ class CloudInstanceConfig:
         self.storageGB = kwargs.get("StorageGB")
         self.noEBS = kwargs.get("NoEBS", False)
         self.filters = kwargs.get("Filters")
+
+    def __repr__(self):
+        return (
+            f"CloudInstanceConfig(instanceRole={self.instanceRole}, market={self.market}, name={self.name}, "
+            f"instanceType={self.instanceType}, workerInstanceType={self.workerInstanceType}, bidPrice={self.bidPrice}, "
+            f"customAmiId={self.customAmiId}, sizeInGB={self.sizeInGB}, volumeType={self.volumeType}, "
+            f"volumesPerInstance={self.volumesPerInstance}, ebsOptimized={self.ebsOptimized}, instanceCount={self.instanceCount}, "
+            f"masterInstanceCount={self.masterInstanceCount}, coreInstanceCount={self.coreInstanceCount}, "
+            f"taskInstanceCount={self.taskInstanceCount}, reservationPreference={self.reservationPreference}, "
+            f"allocationStrategy={self.allocationStrategy}, timeoutAction={self.timeoutAction}, timeoutDuration={self.timeoutDuration}, "
+            f"targetOnDemand={self.targetOnDemand}, targetOnSpot={self.targetOnSpot}, weightedCapacity={self.weightedCapacity}, "
+            f"memoryGB={self.memoryGB}, storageGB={self.storageGB}, noEBS={self.noEBS}, filters={self.filters})"
+        )
+
+    def __str__(self):
+        return self.__repr__()
 
     def create_filters(self, instance, ops: str = "Linux", region: str = "us-east-1"):
         """
