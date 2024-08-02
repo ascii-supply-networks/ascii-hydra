@@ -43,6 +43,14 @@ def get_libs_dict(
     return libs_dict
 
 
+def update_spot_bid_price_percent(
+    fleet_config, new_spot_bid_price_percent
+):  # noqa: C901
+    if hasattr(fleet_config, "percentageOfOnDemandPrice"):
+        fleet_config.percentageOfOnDemandPrice = new_spot_bid_price_percent
+    return fleet_config
+
+
 def generate_uploaded_script_paths(
     local_input_path: str, prefix: str = "dbfs:/"
 ) -> str:
@@ -135,11 +143,11 @@ def spark_pipes_asset_factory(  # noqa: C901
         elif engine_to_use == Engine.Databricks:
             return handle_databricks(client_params, context)  # type: ignore
         elif engine_to_use == Engine.EMR:
-            return handle_emr(client_params, context)  # type: ignore
+            return handle_emr(client_params, context, fleet_filters)  # type: ignore
         else:
             raise ValueError(f"Unsupported engine mode: {engine_to_use.value}")
 
-    def handle_emr(client_params, context):
+    def handle_emr(client_params, context, fleet_filters):
         s3_script_path = generate_uploaded_script_paths(
             local_input_path=external_script_file, prefix="external_pipes"
         )
@@ -157,6 +165,17 @@ def spark_pipes_asset_factory(  # noqa: C901
             engine_specific_libs.extend(emr_additional_libraries)
         else:
             engine_specific_libs = libraries_config
+        if (
+            "config" in client_params.keys()
+            and "spot_bid_price_percent" in client_params["config"].keys()
+        ):
+            if (
+                fleet_filters is not None
+                and client_params["config"]["spot_bid_price_percent"] is not None
+            ):
+                fleet_filters = update_spot_bid_price_percent(
+                    fleet_filters, client_params["config"]["spot_bid_price_percent"]
+                )
         return client.run(  # type: ignore
             context=context,
             emr_job_config=emr_job_config,
@@ -180,7 +199,13 @@ def spark_pipes_asset_factory(  # noqa: C901
             engine_specific_libs.extend(dbr_additional_libraries)
         else:
             engine_specific_libs = libraries_config
-
+        if (
+            "config" in client_params.keys()
+            and "spot_bid_price_percent" in client_params["config"].keys()
+        ):
+            databricks_cluster_config["spot_bid_price_percent"] = client_params[
+                "config"
+            ]["spot_bid_price_percent"]
         task = jobs.SubmitTask.from_dict(
             {
                 "new_cluster": databricks_cluster_config,
