@@ -80,6 +80,7 @@ def get_emr_cluster_config(
             # not needed, these paramters are DIRECTLY managed by the compute provider by selecting an instance type
             # "spark.executor.memory": executorMemory,
             # "spark.driver.memory": driverMemory,
+            "spark.driver.maxResultSize": "10G",
             # "spark.storage.memoryFraction": storageMemoryFraction,
             # "spark.shuffle.memoryFraction": "0.2",
             # hard coding here TODO pass in dynamically
