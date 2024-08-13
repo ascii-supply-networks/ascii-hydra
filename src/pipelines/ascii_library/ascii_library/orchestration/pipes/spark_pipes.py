@@ -19,7 +19,8 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
     In the case of databricks execution mode the following environment variables have to be set in order to authenticate with DB
 
     - `DATABRICKS_HOST`
-    - `DATABRICKS_TOKEN`
+    - `DATABRICKS_CLIENT_ID`
+    - `DATABRICKS_CLIENT_SECRET`
 
     For EMR mode:
 
@@ -48,7 +49,8 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
 
             workspace_client = WorkspaceClient(
                 host=os.environ.get("DATABRICKS_HOST", "dummy"),
-                token=os.environ.get("DATABRICKS_TOKEN", "dummy"),
+                client_id=os.environ.get("DATABRICKS_CLIENT_ID", "dummy"),
+                client_secret=os.environ.get("DATABRICKS_CLIENT_SECRET", "dummy"),
             )
             tagging_client = boto3.client(
                 "resourcegroupstaggingapi",
