@@ -79,7 +79,6 @@ db_step_launcher_dev = databricks_pyspark_step_launcher.configured(
             ],
         },
         "databricks_host": {"env": "DATABRICKS_HOST"},
-        "databricks_token": {"env": "DATABRICKS_TOKEN"},
         "permissions": {},
         # TODO is this needed
         "staging_prefix": "/dbfs/tmp",
