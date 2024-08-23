@@ -1,0 +1,104 @@
+channels:
+  # - pytorch
+  - conda-forge
+  # - r
+  - defaults
+dependencies:
+  - python==3.11
+  - pandas<3
+  - pip
+  - python-dotenv
+  - grpcio
+  - grpcio-tools
+  - tqdm
+  - pyspark == 3.5.1
+  - openjdk == 17.0.11
+  - pypdf >=3.4,<4.4
+  - docx2txt >=0.8,<0.9.0
+  - fastapi >= 0.111.0,<0.112
+  - uvicorn >= 0.30.1,<0.31
+  - ujson >=5.10.0,<5.11
+  - beautifulsoup4 >=4.12.2,<4.13
+  - xlrd >=2.0.1,<2.1
+  - tldextract >=5.1.0,<5.2
+  - s3fs
+  - fsspec
+  - lxml
+  - cachetools >=5.3.2,<5.5
+  - cchardet >=2.1.7,<2.2
+  - nodejs >=20.8.1,<23
+  - h3-py >=3.7.6,<4
+  - h3pandas >=0.2.5,<0.3
+  - libsndfile >=1.2.2, <1.3
+  - sentencepiece >=0.2, <0.3
+  - sox >= 14.4.2, < 14.5
+  # governance
+  - impyla >=0.18,<1
+  #- spacy >=3.7.4
+  # dev dependencies
+  - jupyterlab
+  - jupyterlab-git
+  - ipywidgets
+  - isort
+  - pytest
+  - pytest-mock >=3.14.0, <3.15
+  - pytest-cov >=5.0.0, <5.1
+  - black
+  - ruff
+  - mypy
+  - yamllint
+  - pip:
+      - ctransformers >=0.2.27,<0.3.0
+      - chainlit == 1.1.306
+      - pymupdf >=1.23.6,<1.25.0
+      - qdrant-client >=1.9.1,<1.11
+      - black[jupyter]
+      - tiktoken >=0.7.0,<0.8.0
+      - dagster >=1.7.12,<1.8
+      - dagster-docker >=0.23.12,<0.24
+      - dagster-postgres >=0.23.12,<0.24
+      - dagster-dbt >=0.23.12,<0.24
+      - dagster-slack >=0.23.12,<0.24
+      - dagster-aws >=0.23.12,<0.24
+      - dagster-pyspark >=0.23.12,<0.24
+      - dagster-databricks >=0.23.12,<0.24
+      - dagster-shell >=0.23.12,<0.24
+      - dagster-cloud >=1.7.12,<1.8
+      - dagster-duckdb >=0.23.12,<0.24
+      - dagster-duckdb-pyspark >=0.23.12,<0.24
+      - dagster-duckdb-polars >=0.23.12,<0.24
+      - dagster-duckdb-pandas >=0.23.12,<0.24
+      - dagster-pipes >=1.7.12,<1.8
+      - dagster-webserver >=1.7.12,<1.8
+      - dbt-postgres==1.7.12
+      - dbt-duckdb==1.7.5
+      - dbt-core==1.7.12
+      - duckdb >=1.0.0,<1.1.0
+      - sqlfluff==3.0.7
+      - sqlfluff-templater-dbt==3.0.7
+      - delta-spark==3.2.0
+      - deltalake >=0.18.1,<0.19
+      - polars >=1.2.1,<2
+      - buenavista >= 0.4.0,<0.5
+      - surt >= 0.3.1,<0.4
+      - h3ronpy >=0.20.1,<0.21
+      - openai >= 1.37.0,<1.38
+      - build >= 1.2.1, <1.3
+      - openpyxl >= 3.1.4, < 3.2
+      - rapidfuzz >= 3.9.3, < 3.10
+      - thefuzz >= 0.22.1, < 0.30
+      - fastwarc >=0.14.7,<0.15
+      - databricks-sdk >=0.8,<0.30
+      - awscliv2 >=2.3.0, <2.4
+      - tenacity >= 8.3, <8.6
+      - paramiko >=3.4.0, <3.5
+      - hvplot>=0.9.1,<1.0
+      - seaborn >=0.13.2
+      - PyGithub >=2.3.0, <2.4
+      - ftfy >=6.2.0, <6.3
+      - openmetadata-ingestion>=1.4.4.2,<1.4.5
+      - dbt-artifacts-parser == 0.6.0
+      - pyhive==0.7.0
+      - presidio-analyzer>=2.2.354,<2.3
+      - scrapy-playwright >=0.0.34,<0.1
+      - moto>=5.0.11,<5.1
