@@ -1,4 +1,4 @@
 # ASCII hydra
 
 sample
-x
+checking sync
