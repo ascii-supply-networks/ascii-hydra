@@ -1,3 +1,3 @@
 # ASCII hydra
 
-OSS
+sample
