@@ -1,7 +1,7 @@
 import random
 import string
 from io import BytesIO, StringIO
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from ascii_library.orchestration.pipes import LibraryConfig, LibraryKind
 from ascii_library.orchestration.pipes.cloud_client import _PipesBaseCloudClient
@@ -142,12 +142,12 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         local_file_path: str,
         bucket: str,
         s3_path: str,
-        emr_job_config: dict,
-        step_config: dict,
+        emr_job_config: Dict[str, Any],
+        step_config: Dict[str, Any],
         libraries_to_build_and_upload: Optional[List[str]] = None,
         libraries: Optional[List[LibraryConfig]] = None,
         extras: Optional[PipesExtras] = None,
-    ):
+    ) -> Tuple[(Optional[PipesExtras], Dict[str, Any])]:
         self._upload_file_to_cloud(
             local_file_path=local_file_path, bucket=bucket, cloud_path=s3_path
         )
@@ -156,6 +156,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                 libraries_to_build_and_upload=libraries_to_build_and_upload
             )
             destination = self.create_bootstrap_script(libraries=libraries)
+            emr_job_config = dict(emr_job_config)
             emr_job_config["BootstrapActions"] = [
                 {
                     "Name": "Install custom packages",
@@ -163,6 +164,9 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                 }
             ]
         if extras:
+            # Create a mutable copy of extras if it exists
+            extras = dict(extras) if extras else {}
+            # TODO: do we really have to cast? extras = dict(extras)
             extras["emr_job_config"] = emr_job_config
             extras["step_config"] = step_config
         return extras, emr_job_config
@@ -217,42 +221,47 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             context_injector=self._context_injector,
             extras=extras,
         ) as session:
-            emr_job_config = extras.get("emr_job_config")
-            emr_job_config = self.modify_env_var(
-                cluster_config=emr_job_config, key="bucket", value=bucket
-            )
-            emr_job_config = self.modify_env_var(
-                cluster_config=emr_job_config, key="key", value=self._key_prefix
-            )
-            try:
-                job_flow = self._emr_client.run_job_flow(**emr_job_config)
-                get_dagster_logger().debug(f"EMR configuration: {job_flow}")
-                self._emr_client.add_tags(
-                    ResourceId=job_flow["JobFlowId"],
-                    Tags=[
-                        {"Key": "jobId", "Value": job_flow["JobFlowId"]},
-                        {"Key": "executionMode", "Value": extras["execution_mode"]},
-                        {"Key": "engine", "Value": extras["engine"]},
-                    ],
+            if extras is not None:
+                emr_job_config = extras.get("emr_job_config")  # type: ignore
+                emr_job_config = self.modify_env_var(
+                    cluster_config=emr_job_config, key="bucket", value=bucket
                 )
-                self._emr_client.add_job_flow_steps(
-                    JobFlowId=job_flow["JobFlowId"],
-                    Steps=[extras.get("step_config")],
+                emr_job_config = self.modify_env_var(
+                    cluster_config=emr_job_config, key="key", value=self._key_prefix
                 )
-                get_dagster_logger().info(
-                    f"If not sign in on Rackspace, please do it now: https://manage.rackspace.com/aws/account/{rackspace_user}/consoleSignin"
-                )
-                get_dagster_logger().info(
-                    f"EMR url: https://{aws_region}.console.aws.amazon.com/emr/home?region={aws_region}#/clusterDetails/{job_flow['JobFlowId']}"
-                )
-                self._poll_till_success(cluster_id=job_flow["JobFlowId"])
-            except DagsterExecutionInterruptedError:
-                context.log.info("[pipes] execution interrupted, canceling EMR job.")
-                self._emr_client.terminate_job_flows(JobFlowIds=[job_flow["JobFlowId"]])
-                raise
-            finally:
-                get_dagster_logger().debug("finished")
-        return PipesClientCompletedInvocation(session)
+                try:
+                    job_flow = self._emr_client.run_job_flow(**emr_job_config)
+                    get_dagster_logger().debug(f"EMR configuration: {job_flow}")
+                    self._emr_client.add_tags(
+                        ResourceId=job_flow["JobFlowId"],
+                        Tags=[
+                            {"Key": "jobId", "Value": job_flow["JobFlowId"]},
+                            {"Key": "executionMode", "Value": extras["execution_mode"]},
+                            {"Key": "engine", "Value": extras["engine"]},
+                        ],
+                    )
+                    self._emr_client.add_job_flow_steps(
+                        JobFlowId=job_flow["JobFlowId"],
+                        Steps=[extras.get("step_config")],
+                    )
+                    get_dagster_logger().info(
+                        f"If not sign in on Rackspace, please do it now: https://manage.rackspace.com/aws/account/{rackspace_user}/consoleSignin"
+                    )
+                    get_dagster_logger().info(
+                        f"EMR url: https://{aws_region}.console.aws.amazon.com/emr/home?region={aws_region}#/clusterDetails/{job_flow['JobFlowId']}"
+                    )
+                    self._poll_till_success(cluster_id=job_flow["JobFlowId"])
+                except DagsterExecutionInterruptedError:
+                    context.log.info(
+                        "[pipes] execution interrupted, canceling EMR job."
+                    )
+                    self._emr_client.terminate_job_flows(
+                        JobFlowIds=[job_flow["JobFlowId"]]
+                    )
+                    raise
+                finally:
+                    get_dagster_logger().debug("finished")
+            return PipesClientCompletedInvocation(session)
 
 
 PipesEmrEnhancedClient = ResourceParam[_PipesEmrClient]

@@ -39,8 +39,8 @@ class PipesS3ContextInjector(PipesContextInjector):
 
     @contextmanager
     def inject_context(self, context: "PipesContextData") -> Iterator[PipesParams]:
-        context["bucket"] = self.bucket
-        context["key"] = self.key_prefix
+        context["bucket"] = self.bucket  # type: ignore
+        context["key"] = self.key_prefix  # type: ignore
         get_dagster_logger().debug(json.dumps(context))
         try:
             self.client.put_object(

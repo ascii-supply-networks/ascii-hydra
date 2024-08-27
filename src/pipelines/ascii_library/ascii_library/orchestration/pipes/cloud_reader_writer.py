@@ -48,7 +48,7 @@ class PipesDbfsMessageReader(PipesBlobStoreMessageReader):
     def get_params(self) -> Iterator[PipesParams]:
         with ExitStack() as stack:
             params: PipesParams = {}
-            params["path"] = stack.enter_context(dbfs_tempdir(self.dbfs_client))
+            params["path"] = stack.enter_context(dbfs_tempdir(self.dbfs_client))  # type: ignore
             yield params
 
     def download_messages_chunk(self, index: int, params: PipesParams) -> Optional[str]:
