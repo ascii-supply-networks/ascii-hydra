@@ -1,3 +1,5 @@
+import os
+
 from ascii_library.orchestration.pipes.instance_config import CloudInstanceConfig
 from ascii_library.orchestration.pipes.spark_pipes_factory import (
     LibraryConfig,
@@ -13,10 +15,14 @@ from ascii_library.orchestration.resources.emr_constants import (
     TimeoutAction,
 )
 from ascii_library.orchestration.resources.spark import dev_spark_config
-from dagster import define_asset_job, file_relative_path
-from resources import RESOURCES_LOCAL
+from dagster import define_asset_job, file_relative_path, get_dagster_logger
 
-resource_defs = RESOURCES_LOCAL
+from pipeline_example.resources import resource_defs_by_deployment_name
+
+deployment_name = os.environ.get("DAGSTER_DEPLOYMENT", "dev")
+get_dagster_logger().info(f"Using deployment of: {deployment_name}")
+resource_defs = resource_defs_by_deployment_name[deployment_name]
+
 spark_pipes_client = resource_defs["spark_pipes_client"]
 
 ag = "mini_example"
