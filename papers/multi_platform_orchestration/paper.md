@@ -20,15 +20,17 @@ authors:
     orcid: 0000-0002-8684-1163
   - name: Peter Klimek 
     equal-contrib: true 
-    affiliation: "1, 2, 3"
+    affiliation: "1, 2, 3, 4"
 affiliations:
- - name: Supply Chain Intelligence Institute Austria 
+ - name: Supply Chain Intelligence Institute Austria, Josefst¨adterstraße 39, 1080 Vienna, Austria
    index: 1
- - name: Complexity Science Hub 
+ - name: Complexity Science Hub Vienna, Josefst¨adterstraße 39, 1080 Vienna, Austria 
    index: 2
- - name: Section for Science of Complex Systems, Center for Medical
+ - name: Institute of the Science of Complex Systems, Center for Medical Data Science CeDAS, Medical University of Vienna, Spitalgasse 23, 1090 Vienna, Austria
    index: 3
-date: 10 May 2024
+ - name: Division of Insurance Medicine, Department of Clinical Neuroscience, Karolinska Institutet, SE-17177 Stockholm, Sweden
+   index: 4
+date: 16 Sep 2024
 bibliography: paper.bib
 header-includes:
   - \usepackage{lscape}
@@ -38,168 +40,173 @@ print-pdf:
 
 ## Summary
 
-The rapid advancement of big data technologies has underscored the need for robust and efficient data processing solutions.
-Traditional Spark-based Platform-as-a-Service (PaaS) solutions, such as Databricks (DBR) and Amazon Web Services Elastic MapReduce (EMR), provide powerful analytics capabilities but often result in high operational costs and vendor lock-in issues.
-These platforms, while user-friendly, can lead to significant inefficiencies due to their cost structures and lack of transparent pricing [@Zaharia].
+The rapid growth of big data has increased the demand for efficient processing.
+Spark-based Platform-as-a-Service (PaaS) options like Databricks (DBR) and Amazon Web Services Elastic MapReduce (EMR) offer powerful analytics but come with high operational costs and vendor lock-in [@kumar].
+These platforms are user-friendly, yet their pricing models often lead to inefficiencies.
+This paper introduces a cost-effective orchestration framework leveraging Dagster [@dagster] to reduce dependency on a single PaaS provider by integrating multiple Spark environments.
+Our solution enhances efficiency, enforces best practices, and cuts costs.
+We achieved a 12% speedup on EMR and reduced costs by 40% compared to DBR, saving over 300 euros per pipeline run.
+This framework supports rapid prototyping while facilitating continuous development and large-scale data processing.
 
-This paper introduces a cost-effective and flexible orchestration framework using Dagster [@dagster].
-Our solution aims to reduce dependency on any single PaaS provider by integrating various Spark execution environments.
-We demonstrate how Dagster's orchestration capabilities can enhance data processing efficiency, enforce best coding practices, and significantly reduce operational costs.
-In our implementation, we achieved a 12\% performance improvement over EMR and a 40\% cost reduction compared to DBR, translating to over 300 euros saved per pipeline run.
+## Statement of Need
 
-Our goal is to provide a flexible, developer-controlled computing environment that maintains or improves performance and scalability while mitigating the risks associated with vendor lock-in.
-The proposed framework supports rapid prototyping and testing, which is essential for continuous development and operational efficiency, contributing to a more sustainable model of large data processing.
+Spark-based PaaS platforms like Databricks are convenient but are known to cause vendor lock-in and unpredictable costs [@Zaharia].
+This leads to inefficiencies and higher expenses.
+Our solution uses Dagster to integrate various Spark environments.
+This reduces reliance on a single provide, cuts costs by optimizing resource use, maintains performance and enables agile, scalable data operations.
+Furthermore, the solution ensures consistency across development stages which in turn allows for the replication of scientific experiments under identical conditions.
+This is key for verifiable research.
 
-## Statement of need
-
-In the domain of large-scale data processing, Platform as a Service (PaaS) solutions based on the Spark framework, such as DBR, have demonstrated notable advantages in terms of user-friendliness and robust analytical capabilities.
-However, these benefits are not without substantial drawbacks, including high costs associated with vendor lock-in and a lack of transparent pricing, which can escalate rapidly and unpredictably.
-The convenience of such platforms can result in inefficient deployments, where the ease of adding resources does not correlate with need or cost-efficiency.
-This can diminish developer productivity, hinder good development practices, and increase operational expenses.
-
-The proposed solution employs Dagster's orchestration capabilities to facilitate a robust integration of diverse Spark environments, thereby reducing reliance on a single PaaS provider.
-This approach mitigates the potential for lock-in risks, enhances cost efficiency, and incorporates coding standards and best practices into the data science pipeline.
-This transition not only enhances productivity by enabling expeditious prototyping and testing on smaller data sets but also markedly reduces costs by optimising resource utilisation across disparate platforms without compromising performance
-
-This approach is of particular importance for organisations seeking to maintain agility and scalability in their data operations without incurring excessive costs.
-By decentralising the data processing tools and focusing on enhancing orchestration and flexibility, organisations can achieve more sustainable growth and innovation in the domain of big data.
-
-This structured approach ensures consistency across the various stages of development and facilitates the verification and replication of results, which are critical elements in scientific research.
-By leveraging a dedicated orchestrator like Dagster, which emphasises containerisation and robust orchestration capabilities, researchers can create workflows that are not only efficient but also transparent and replicable.
-Such systems foster a collaborative scientific environment where methodologies are as open and accessible as the findings they produce.
+Our work addresses research gaps with respect to cloud computing.
+Previous work such as [@Anil] focused on energy-efficient scheduling, while [@Daw] explored predictive analytics for cloud resource scaling.
+Our approach seeks to bridge such approaches by using a multi-cloud strategy with open orchestration tools like Dagster
 
 ## Relevance
 
-The proposed architectural framework, which employs Dagster, facilitates the reproducibility of pipelines by centralising the management of metadata and standardising the orchestration of data processing tasks across diverse operational environments.
-By abstracting the complexity of the underlying infrastructure and providing tools for seamless integration and deployment, the architecture particularly facilitates the replication of scientific experiments under identical conditions.
-Consequently, it permits the replication of scientific experiments under identical conditions, thereby facilitating verifiable and reliable scientific investigation.
-
-Notwithstanding the mounting interest in data pipelines, authors such as @Anil concentrate on the optimisation of big data processing through sophisticated scheduling techniques that minimise energy consumption and latency.
+The proposed framework improves reproducibility by centralizing metadata management and standardizing orchestration across diverse environments.
+This in turn reduces infrastructure complexity and aids in consistently replicating experiments, supporting
+reliable research.
+Notwithstanding the mounting interest in data pipelines, authors such as Mathew et al. (2024) concentrate on the optimisation of big data processing through sophisticated scheduling techniques that minimise energy consumption and latency.
 While their work also aims to optimise resource utilisation in data centres, its core emphasis is on the algorithmic enhancement of scheduling mechanisms, rather than on orchestration across different PaaS solutions or on the promotion of coding practices within data pipelines.
-In their 2021 paper, @Daw. examine the creation of a framework for automated scaling of resources in cloud environments.
+In their 2021 paper, @Daw examine the creation of a framework for automated scaling of resources in cloud environments.
 Their work focuses on aspects of resource allocation based on predictive analytics, with the goal of optimising operational costs and performance.
-In contrast to the work presented here, these approaches do not address the integration of multiple cloud platforms or the orchestration of data processing tasks using open tools like Dagster.
+In contrast to the work presented here, these approaches do not address the integration of multiple cloud platforms or the orchestration of data processing tasks using open tools.
 
 ## Architecture Model
 
-The framework employs Dagster, an open-source data orchestrator designed for the construction, operation, and observation of data pipelines.
-The decision was taken to run Dagster on Docker in order to maintain greater control over the orchestration environment.
-This configuration enhances the reproducibility and scalability of the system, ensuring alignment with the optimisations made in terms of cost and performance.
-This has the potential to reduce resource consumption by as much as 43\%, see the findings of @Heiler for more details.
+We use Dagster, an open-source data orchestrator, in our framework.
+It builds, operates, and monitors data pipelines next to aligning with our cost and performance optimizations.
+That this pipeline can also significantly reduce resource use has been previously reported, see @Heiler:
 
-More concrete, our objective was to implement a cloud-based management system capable of delivering essential functionalities such as:
+More specifically, we aimed to create a cloud-based management system offering
 
-- Dynamic resource deployment on the selected platform with automatic scaling;
-- Virtual machine and network configuration management;
-- Comprehensive deployment and execution monitoring.
+- Dynamic resource deployment with automatic scaling
+- Virtual machine and network configuration management
+- Comprehensive deployment and execution monitoring
 
-In order to attain these capabilities, a number of modifications were required.
+To achieve these capabilities, several modifications to Dagster default clients were necessary.
 
 ![Diagram orchestrator behavior.\label{fig:diagram}](./static/pipeline_diagram.png)
 
-The core components of our framework include, as illustrated in figure \ref{fig:diagram}:
+Our framework's core components, depicted in Figure \ref{fig:diagram}, include:
 
-1. **Dagster Context Injector**: It oversees the management of general and job-specific configurations, including environmental variables, partitioning, and tagging, which are vital for effective resource management and task segmentation.
+1. **Dagster Context Injector:** It manages general and job-specific settings.
+They are vital for efficient resource use and task segmentation.
 
-2. **Message Reader Improvements**: Optimised to support telemetry functionalities, the system is capable of capturing and processing messages for real-time monitoring and robust debugging, which is particularly useful for EMR.
+2. **Message Reader Improvements:** It boosts telemetry support.
+It captures and processes messages for real-time monitoring and debugging.
 
-3. **Cloud Client Innovations**: Introduces a generic cloud client for managing Dagster clients on different platforms, ensuring reliable integration with AWS services and secure environment customisation.
+3. **Cloud Client Innovations:** Introduces a generic cloud client for managing Dagster on various platforms, ensuring seamless AWS integration and secure environment customization.
 
-4. **Automation and Integration**: Integrates job definition upload processes with the DBR REST API and Boto3 clients, automating job setup and environment bootstrapping.
+4. **Automation and Integration:** Automates job definition uploads with the Databricks REST API and Boto3 clients. It streamlines setup and environment bootstrapping.
 
-5. **Dynamic Factory for Cloud Client Management**: Detects and designates appropriate execution environments, adapting to changes in processing requirements or processing requirements or platform preferences.
+5. **Dynamic Factory for Cloud Client Management:** It picks the best execution environments based on changing needs or preferences.
 
-Our strategic enhancements ensure an easy-to-use interface that shields end users from the complexities of directly managing cloud resources.
-This approach significantly reduces the overhead associated with traditional cloud deployments, allowing organisations to focus on strategic tasks.
-
-To ensure production reliability and replicability, this implementation was dockerised.
-Dockerisation enabled a consistent and controlled environment across different development and production stages, minimising inconsistencies and potential problems associated with environment-specific configurations.
+These changes aim at creating a user-friendly interface that shields users from the complexities of cloud resource management.
+This shielding significantly reduces overhead and lets organizations focus on strategic goals.
+To minimize inconsistencies and configuration issues, we further dockerized the implementation to ensure a controlled development and production environment, facilitating reliability and replicability in production.
 
 ### Example Use Case: Mining web-based interfirm networks from Common Crawl
 
-We illustrate the capabilities of our framework within the task of constructing a web-based mapping of company ecosystems, see also @kinne.
-More concrete, we aim to infer different types of relationships between companies by analysing both textual information and hyperlinks found on company websites, which often contain information on how these companies collaborate in innovation activities.
-This mapping involves a detailed extraction process where we identify and pre-process websites from a predefined list of companies (seed nodes), extract edges representing hyperlinks between these nodes, construct a detailed graph and then aggregate this graph to a domain level.
-Each step is critical to understanding the relationships and interactions between companies that are often embedded in the content and structure of their web pages.
-The Common Crawl dataset is a particular promising avenue for this kind of research, as it also contains historic data which allows one to map the dynamics of the company ecosystem.
+We show our framework by making a web-based map of company ecosystems, as [@kinne].
+The research aim in such works is to find relationships between companies.
+To this end company websites are searched for hyperlinks to other company websites, often revealing collaborative innovation efforts.
 
 #### Datasets
 
-- Common Crawl CC-MAIN: This dataset contains the WARC (Web ARChive) files, which contain the raw web crawl data, and the WAT, which store the computed metadata.
-- Seed Nodes: A subset of URLs identified as starting points for our analysis.
+- Common Crawl CC-MAIN:
+This dataset comprises WARC (Web ARChive) files containing raw web crawl data, and WAT files storing computed metadata.
+- Seed Nodes:
+A subset of URLs (e.g., langing pages of company websites) identified as starting points for our analysis.
 These nodes are processed to ensure they are relevant and free of common problems.
 
 #### Pipeline Breakdown
 
-The task requires the combined extraction of text and graph data to also be able to understand due to which activities companies link with each other.
-This necessitates a customized approach to data extraction rather than relying on existing extractions that assume text-only or graph-only data.
-Our pipeline includes four key assets:
+Existing data extraction methods only work on text or graph data.
+However, to understand which kind of collaborations companies are forming, our use case requires the extraction of both text and graph data simultaneously.
+We therefore developed a custom data extraction method as follows.
+Our pipeline consists of four key assets:
 
-1. **NodesOnly**: Extracts and preprocesses seed node information.
-2. **Edges**: Extracts HTML content and hyperlinks from seed node URLs.
-3. **Graph**: Constructs a hyperlink graph by joining nodes and edges.
-4. **GraphAggr**: Aggregates the graph to the domain level for higher-level analysis.
+1. **NodesOnly**:  Extracts and preprocesses seed node information.
+2. **Edges**: Extracts HTML content and hyperlinks from seed node URLs
+3. **Graph**: Constructs a hyperlink graph by combining nodes and edges
+4. **GraphAggr**: Aggregates the graph to the domain level for broader analysis
 
 ![Detailed dagster pipeline showcasing how execution environments can be chosen as needed between local, EMR and DBR.\label{fig:pipleineDagster}](./static/pass-implementation-detail-in-action.png)
 
-Each asset in figure \ref{fig:pipleineDagster} demonstrates the flexibility and efficiency of our orchestration framework, which can adapt to diverse computational needs across different platforms.
-Data is partitioned along two primary dimensions: time and domain.
-The temporal partitioning aligns with the Common Crawl[^1] dataset used, facilitating efficient data management and accessibility.
-Conversely, the domain-based partitioning approach is designed to support parallel processing of different research queries.
-This approach allows for the application of different filtering criteria within the data analysis processes, thereby optimising the computational effort and allowing the task to be submitted to the platforms that best suit its needs.
+Figure \ref{fig:pipleineDagster} hows assets that prove our framework’s adaptability and efficiency.
+The framework can handle diverse computing needs across various platforms.
+Data partitioning occurs along two dimensions:
+time and domain.
+The temporal partitioning matches the Common Craw[^1] dataset.
+It streamlines data management and access.
+Domain-based partitioning, on the other hand, enables parallel processing of different research queries.
+This approach allows varied filtering in data analysis.
+It optimizes resources and enables task submission to the best platforms.
 
 [^1]: Common Crawl was accessed between October 2023 and March 2024 from [Common Crawl](https://registry.opendata.aws/commoncrawl).
 
 ## Implementation Challenges
 
-The implementation of new computational platforms, particularly the transition from DBR to AWS EMR, is an example of a complex process that is characterised by a number of challenges and strategic decisions.
-This transition, driven primarily by the potential for cost reduction and enhanced flexibility, reveals significant operational challenges, as illustrated in the accompanying graphical analyses.
-Figure \ref{fig:stackedTrial} shows results from runs with sample data, in which run outcomes on both platforms are categorized into three states: success, failure, and cancellation.
-Notably, EMR shows a higher proportion of failures compared to DBR, which is consistent with the ongoing adjustments reflected in the cumulative changes graph.
-This suggests that while EMR provides a cost-effective solution, its operational stability and reliability demand continual oversight and refinement.
+The implementation of new computational platforms, despite its potential for cost savings and flexibility, is a substantial
+operational challenges.
+A particular challenge is the transition from DBR to AWS EMR.
+Figure  \ref{fig:stackedTrial} indeed shows a higher failure rate in EMR than in Databricks.
+This transition therefore requires constant adjustments and oversight with EMR
 
 ![Stacked Plot of Trail Runs by Platform.\label{fig:stackedTrial}](./static/sample_run_by_status.png)
 
-Working with EMR (or any not so user friendly PaaS) involves a considerable learning curve and operational investment.
-The initial setup of EMR, despite the foundational familiarity with Spark architectures, proved to be labor-intensive and fraught with technical challenges.
-The necessity for almost double the number of trial runs for EMR as compared to DBR before achieving production stability is indicative of the intricate setup and optimization demands posed by EMR.
-This process not only demanded a higher frequency of code revisions but also a deeper engagement with EMR's underlying operational mechanics.
+Working with EMR (or any less user-friendly PaaS) demands a steep learning curve.
+The initial setup, despite our familiarity with Spark, proved labor-intensive.
+The need for nearly double the trial runs for EMR, compared to Databricks, to achieve production stability shows its complex setup and optimization requirements.
+We used an iterative process that included:
 
-The implementation of EMR client exemplifies the considerable learning curve and detailed configuration mastery required to harness its full potential effectively, particularly in comparison to the more user-friendly DBR platform.
-Through an iterative process, as depicted in the line chart (figure \ref{fig:linePlatform}) showing the cumulative changes over time, our team gradually accrued the technical acumen necessary to fine-tune EMR's environment to meet our rigorous performance and cost-efficiency standards.
+- Configuring node labeling within YARN to ensure stable core nodes handle critical tasks.
+- Maximizing resource allocation, especially when not in fleet mode.
+- Addressing EMR’s specific memory management challenges, striking a balance between performance and cost.
+- Optimize maintenance tasks, like vacuum operations in Delta Lake. They were automatically handled on Databricks
 
 ![Effort Needed for Implementing Each Platform Client.\label{fig:linePlatform}](./static/line_development.png)
 
-This entailed configuring node labelling within YARN in order to guarantee that core nodes, which are more stable, assume responsibility for critical tasks.
-Specifically, enabling the `yarn.node-labels.enabled` parameter and setting `yarn.node-labels.am.default-node-label-expression` to `CORE` proved to be a crucial step.
-Furthermore, the configuration of the cluster to achieve the greatest possible resource allocation was achieved by setting the following properties: The configuration of the`maximizeResourceAllocation` parameter to `true` ensured that the available resources were optimally utilised, particularly in instances where the system was not operating in a fleet mode.
+Configuration insights came from constant refinement, showing the need for an engaged, experimental approach to managing
+EMR.
+Figure \ref{fig:linePlatform} uantitatively depicts this iterative learning process.
+These results emphasize the continuous efforts and small improvements necessary to build a robust, cost-efficient platform.
 
-It was necessary to gain an understanding of the specific challenges presented by EMR in relation to memory management.
-By doubling the memory allocations, a significant improvement in performance was achieved, while maintaining cost-effectiveness.
-However, these adjustments often resulted in longer run times compared to DBR.
-This approach highlighted the necessity of striking a delicate balance between cost and performance when utilising EMR.
+This process also involved fine-tuning YARN’s configurations.
+It ensured that critical tasks were allocated to more stable core nodes.
+We found that it was critical to enable the `yarn.node-labels.enabled` parameter.
+Then, set `yarn.node-labels.am.default-node-label-expression` to `CORE`.
+Also, in non-fleet mode, set `maximizeResourceAllocation` to true to use resources efficiently.
 
-In order to address the issue of slower operations, particularly those associated with vacuum tasks in Delta Lake, it was necessary to set the parameter `spark.databricks.delta.vacuum.parallelDelete.enabled` to `true`.
-This configuration was of paramount importance for optimising maintenance tasks, which could otherwise result in an unnecessarily extended runtime.
-This was automatically handled on DBR, but required several hours and experimentation until the EMR parameter was identified.
+Understanding EMR’s specific memory management challenges therefore turned out to be essential.
+Doubling memory allocations improved performance and kept costs low.
+However, it sometimes led to longer run times than Databricks.
+This shows the need to balance cost and performance when using EMR.
 
-Each of these configuration insights was only realised through continuous refinement and adaptation, demonstrating the necessity of a deeply engaged, experimental approach to managing and optimising a platform like EMR.
-The learning process involved was non-trivial, highlighting the sophisticated understanding required to ensure EMR's operational efficiency and stability.
-This iterative learning and adaptation process is visually represented in the cumulative line chart, which reflects the extensive effort and incremental advancements over time, culminating in a robust, cost-efficient platform setup.
+To fix slow operations, especially Delta Lake vacuum tasks, it was key to enable parallel deletion by setting `spark.databricks.delta.vacuum.parallelDelete.enabled`
+to true.
+This optimization was crucial for efficient maintenance.
+Databricks handled this automatically while EMR required experimentation to find the right parameter.
 
-It is also noteworthy that the custom enhancements described in the preceding section, including the Dagster Context Injector, Message Reader, and Cloud Client Innovations, were developed to integrate harmoniously with our existing infrastructure, offering bespoke solutions that generic implementations in the open-source Dagster project may not accommodate.
-The incorporation of specific features into the open-source Dagster project may result in the dilution of their particular characteristics or necessitate extensive modifications that may not be universally applicable or advantageous.
-Consequently, while we endeavour to contribute to the community wherever feasible, some of our modifications will remain open source but separate from the Dagster repository in order to preserve their bespoke functionality.
-Our architectural approach necessitates the construction of data processing environments that are not integrated with Dagster, but rather built upon it.
-This methodology allows us to leverage Dagster's core capabilities while enhancing them with bespoke solutions that align with our strategic goals and technical requirements.
+Our custom enhancements were designed to integrate with our existing infrastructure.
+They include the Dagster Context
+Injector, Message Reader, and Cloud Client Innovations.
+They offer solutions not met by generic open-source Dagster implementations.
+Our aim is therefore to contribute to the community to address such issues wherever we can.
+Some changes will stay separate from the Dagster repo to preserve their specialized functions.
+Our architecture prioritizes using Dagster to build data processing environments.
+This lets us leverage its core features while enhancing them with custom solutions.
 
 ## Platform Comparison
 
-In Table \ref{tab:costTable} provides a comprehensive breakdown of the computational costs associated with processing the same batch of Common Crawl data across EMR and DBR.
-It is evident that utilising DBR significantly increases the overall cost of utilising the platform, particularly for compute-intensive and prolonged operations such as processing the Common Crawl (CC) edges.
-Even for less demanding tasks, the surcharges imposed by DBR represent a significantly higher proportion of the overall expenses, rendering it a costlier option.
-However, despite these higher costs, DBR offers the advantage of enhanced performance capabilities, attributed to its sophisticated and optimised data processing frameworks.
-This efficiency potentially justifies the additional financial outlay by contributing to time savings in both operational and developmental phases, which is a critical consideration for projects where speed and performance are prioritised alongside cost.
+Table \ref{tab:costTable} shows the computational costs for processing the same Common Crawl data batch on EMR and DBR.
+DBR outperforms other options, especially in compute-heavy tasks like edge processing.
+But it is much more expensive.
+This advantage cuts operational and development time.
+It may justify the premium for time-sensitive projects.
+EMR, on the other hand, is cheaper.
+It suits budget projects that need scalable data processing.
 
 \begin{landscape}
 \begin{table}[]
@@ -224,19 +231,16 @@ Run & Step        & Platform & Duration & Total Cost & Platform Surcharge & EBS 
 \end{table}
 \end{landscape}
 
-This box plot in figure \ref{fig:costProduction}, unlike the previous table, shows costs for multiple batches of Common Crawl data. It provides a better overview of the costs across various tasks and platforms.
-DBR shines in compute-heavy tasks, offering superior performance at a premium.
-Its edge processing capabilities justify higher costs by slashing operational and development time. EMR, on the other hand, proves more economical for simpler operations.
-This cost-effective solution suits budget-conscious projects needing scalable data processing.
-The graph  illustrates these economic trade-offs across various data processing stages, helping institutions and businesses make informed decisions based on their specific needs and financial constraints.
-
 ![Total Cost Production Runs by Asset.\label{fig:costProduction}](./static/total_costs_production_runs.png)
 
-Figure \ref{fig:durationProduction} offers an empirical comparison of step durations across platforms during different phases of data processing.
-This visualisation demonstrates a notable discrepancy in performance, with DBR exhibiting a consistently reduced processing time.
-This discrepancy in performance can be attributed to DBR' optimised runtime environment, which includes an optimised version of Spark itself as well as a C-based rewrite (Photon Behm et al., 2022) that significantly reduces overhead and execution time.
-Furthermore, DBR offers pre-configured settings, enabling more efficient data processing without the necessity for extensive manual tuning, which is required with EMR.
-This not only underscores the enhanced usability of DBR but also highlights its cost-effectiveness in terms of resource utilisation and time savings.
+Figure \ref{fig:costProduction} shows costs across multiple Common Crawl batches whereas \ref{fig:durationProduction} compares step durations.
+Taken together, these results visualize the trade-off between platforms for different tasks.
+DBR had the fastest times due to its optimized runtime.
+It uses an optimized Spark version and a C-based rewrite (Photon).
+DBR’s pre-configured settings improve usability and efficiency.
+They eliminate the need for extensive manual tuning required with EMR.
+This further underscores DBR’s cost-effectiveness in resource and time savings.
+
 ![Total Duration Production Runs by Asset.\label{fig:durationProduction}](./static/step_duration_runs.png)
 
 ## Acknowledgments
