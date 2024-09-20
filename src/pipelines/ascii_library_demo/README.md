@@ -40,11 +40,32 @@ To create the environment execute the following commands:
 ```bash
 pixi run start
 
+## testing
+# check formatting
 pixi run -e ci fmt
+# check typing
 pixi run -e ci lint
+# run tests
+pixi run -e testing test
 ```
 
-then go to http://localhost:3000 for the dagster UI
+alterantively use the makefile via:
+
+```
+make start
+make test
+make fmt
+make lint
+```
+
+The package can be installed using pixi via:
+
+```
+pixi install
+```
+automatically an isolated python environment is created.
+
+Execute `make start` and then go to http://localhost:3000 for the dagster UI
 
 ## explanation
 

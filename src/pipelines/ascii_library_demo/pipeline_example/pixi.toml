@@ -5,6 +5,7 @@ pip = ">=24.2"
 [environments]
 ci = { features = ["ci"], solve-group = "ci" }
 example = { features = ["example"], solve-group = "example" }
+testing = { features = ["ci","example", ], solve-group = "example" }
 
 [feature.ci.dependencies]
 pytest = ">=8.3.2,<9"

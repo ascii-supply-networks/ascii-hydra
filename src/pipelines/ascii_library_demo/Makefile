@@ -1,3 +1,7 @@
+.PHONY: test
+test:
+	cd pipeline_example && pixi run -e testing test
+
 .PHONY: fmt
 fmt:
 	cd pipeline_example && pixi run -e ci fmt
