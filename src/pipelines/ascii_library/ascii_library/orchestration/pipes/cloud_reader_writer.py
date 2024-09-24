@@ -44,27 +44,29 @@ class PipesDbfsMessageReader(PipesBlobStoreMessageReader):
         )
         self.dbfs_client = files.DbfsAPI(client.api_client)
 
-    @contextmanager
-    def get_params(self) -> Iterator[PipesParams]:
-        with ExitStack() as stack:
-            params: PipesParams = {}
-            params["path"] = stack.enter_context(dbfs_tempdir(self.dbfs_client))  # type: ignore
-            yield params
 
-    def download_messages_chunk(self, index: int, params: PipesParams) -> Optional[str]:
-        message_path = os.path.join(params["path"], f"{index}.json")
-        try:
-            raw_message = self.dbfs_client.read(message_path)
-            if raw_message.data is not None:
-                # Files written to dbfs using the Python IO interface used in PipesDbfsMessageWriter are
-                # base64-encoded.
-                return base64.b64decode(raw_message.data).decode("utf-8")
-            return None
-        # An error here is an expected result, since an IOError will be thrown if the next message
-        # chunk doesn't yet exist. Swallowing the error here is equivalent to doing a no-op on a
-        # status check showing a non-existent file.
-        except IOError:
-            return None
+@contextmanager
+def get_params(self) -> Iterator[PipesParams]:
+    with ExitStack() as stack:
+        params: PipesParams = {}
+        params["path"] = stack.enter_context(dbfs_tempdir(self.dbfs_client))  # type: ignore
+        yield params
+
+
+def download_messages_chunk(self, index: int, params: PipesParams) -> Optional[str]:
+    message_path = os.path.join(params["path"], f"{index}.json")
+    try:
+        raw_message = self.dbfs_client.read(message_path)
+        if raw_message.data is not None:
+            # Files written to dbfs using the Python IO interface used in PipesDbfsMessageWriter are
+            # base64-encoded.
+            return base64.b64decode(raw_message.data).decode("utf-8")
+        return None
+    # An error here is an expected result, since an IOError will be thrown if the next message
+    # chunk doesn't yet exist. Swallowing the error here is equivalent to doing a no-op on a
+    # status check showing a non-existent file.
+    except IOError:
+        return None
 
     def no_messages_debug_text(self) -> str:
         return (

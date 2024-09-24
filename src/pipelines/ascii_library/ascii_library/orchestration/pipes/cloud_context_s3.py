@@ -1,10 +1,9 @@
 import json
 import os
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List
+from typing import Any, Iterator, List
 
 import dagster._check as check
-from boto3 import client
 from dagster import get_dagster_logger
 from dagster._annotations import experimental
 from dagster._core.pipes.client import PipesContextInjector
@@ -14,6 +13,8 @@ from dagster_pipes import (
     PipesParams,
     PipesParamsLoader,
 )
+from mypy_boto3_s3 import S3Client
+from mypy_boto3_s3.type_defs import DeleteTypeDef, ObjectIdentifierTypeDef
 
 _CONTEXT_FILENAME = "context.json"
 
@@ -30,7 +31,7 @@ class PipesS3ContextInjector(PipesContextInjector):
 
     """
 
-    def __init__(self, *, bucket: str, client: client, key_prefix: str):
+    def __init__(self, *, bucket: str, client: S3Client, key_prefix: str):
         super().__init__()
         self.bucket = check.str_param(bucket, "bucket")
         self.client = client
@@ -63,17 +64,22 @@ class PipesS3ContextInjector(PipesContextInjector):
         paginator = self.client.get_paginator("list_objects_v2")
         pages = paginator.paginate(Bucket=self.bucket, Prefix=key)
 
-        delete_us: Dict[str, List[Dict[str, str]]] = {"Objects": []}
+        # Use a mutable list to collect objects
+        objects_to_delete: List[ObjectIdentifierTypeDef] = []
+
         for item in pages.search("Contents"):
-            delete_us["Objects"].append({"Key": item["Key"]})
+            if item is not None and "Key" in item:
+                objects_to_delete.append({"Key": item["Key"]})
 
-            # flush once aws limit reached
-            if len(delete_us["Objects"]) >= 1000:
+            # Flush once AWS limit reached
+            if len(objects_to_delete) >= 1000:
+                delete_us: DeleteTypeDef = {"Objects": objects_to_delete}
                 self.client.delete_objects(Bucket=self.bucket, Delete=delete_us)
-                delete_us = {"Objects": []}
+                objects_to_delete = []
 
-        # flush rest
-        if len(delete_us["Objects"]):
+        # Flush remaining objects
+        if objects_to_delete:
+            delete_us = {"Objects": objects_to_delete}
             self.client.delete_objects(Bucket=self.bucket, Delete=delete_us)
 
 

@@ -3,7 +3,6 @@ from contextlib import contextmanager
 from typing import Any, Iterator, Optional, Sequence
 
 import dagster._check as check
-from boto3 import client
 from botocore.exceptions import ClientError
 from dagster._core.pipes.utils import PipesBlobStoreMessageReader, PipesLogReader
 from dagster_pipes import (
@@ -11,6 +10,7 @@ from dagster_pipes import (
     PipesParams,
     PipesS3MessageWriterChannel,
 )
+from mypy_boto3_s3 import S3Client
 
 
 class PipesS3MessageReader(PipesBlobStoreMessageReader):
@@ -33,7 +33,7 @@ class PipesS3MessageReader(PipesBlobStoreMessageReader):
         interval: float = 10,
         bucket: str,
         key_prefix: str,
-        client: client,
+        client: S3Client,
         log_readers: Optional[Sequence[PipesLogReader]] = None,
     ):
         super().__init__(

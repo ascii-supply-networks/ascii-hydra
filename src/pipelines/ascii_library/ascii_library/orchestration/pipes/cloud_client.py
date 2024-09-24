@@ -2,9 +2,9 @@ import base64
 import time
 from typing import List, Optional, Union
 
-import boto3
 import dagster._check as check
 from ascii_library.orchestration.resources.emr_constants import pipeline_bucket
+from botocore.client import BaseClient
 from botocore.exceptions import (
     ClientError,
     ConnectionError,
@@ -55,7 +55,7 @@ class _PipesBaseCloudClient(PipesClient):
 
     def __init__(
         self,
-        main_client: Union[boto3.client, WorkspaceClient],
+        main_client: Union[BaseClient, WorkspaceClient],
         context_injector: Optional[PipesContextInjector] = None,
         message_reader: Optional[PipesMessageReader] = None,
         poll_interval_seconds: float = 5,
@@ -71,10 +71,13 @@ class _PipesBaseCloudClient(PipesClient):
         )
         self.main_client = main_client
         self.last_observed_state = None
-        if not hasattr(main_client, "dbfs"):
+        if (
+            isinstance(main_client, BaseClient)
+            and main_client.meta.service_model.service_name == "emr"
+        ):
             self._s3_client = kwargs.get("s3_client")
             self.filesystem = ""
-        else:
+        elif isinstance(main_client, WorkspaceClient):
             self.filesystem = "dbfs"
             self._tagging_client = kwargs.get("tagging_client")
 
@@ -145,10 +148,14 @@ class _PipesBaseCloudClient(PipesClient):
             self.engine = kwargs.get("extras")["engine"]
             self.executionMode = kwargs.get("extras")["execution_mode"]
         while cont:
-            if not hasattr(self.main_client, "dbfs"):
+            if isinstance(self.main_client, BaseClient):
                 cont = self._handle_emr_polling(kwargs.get("cluster_id"))
-            elif hasattr(self.main_client, "dbfs"):
+            elif isinstance(self.main_client, WorkspaceClient):
                 cont = self._handle_dbr_polling(run_id=kwargs.get("run_id"))
+            else:
+                raise TypeError(
+                    "main_client must be either EMRClient or WorkspaceClient"
+                )
             time.sleep(self.poll_interval_seconds)
 
     def _handle_terminated_state_emr(self, job_flow, description, state):
@@ -221,10 +228,14 @@ class _PipesBaseCloudClient(PipesClient):
 
     def _upload_file_to_cloud(self, local_file_path: str, cloud_path: str, **kwargs):
         try:
-            if not hasattr(self.main_client, "dbfs"):
+            if isinstance(self.main_client, BaseClient):
                 self._upload_file_to_s3(local_file_path, cloud_path, **kwargs)
-            elif hasattr(self.main_client, "dbfs"):
+            elif isinstance(self.main_client, WorkspaceClient):
                 self._upload_file_to_dbfs(local_file_path, cloud_path)
+            else:
+                raise TypeError(
+                    "main_client must be either EMRClient or WorkspaceClient"
+                )
         except Exception as e:
             self.handle_exep(e)
 
@@ -248,6 +259,7 @@ class _PipesBaseCloudClient(PipesClient):
             get_dagster_logger().debug("fail to upload to S3")
 
     def _upload_file_to_dbfs(self, local_file_path: str, dbfs_path: str):
+        assert isinstance(self.main_client, WorkspaceClient)
         with open(local_file_path, "rb") as file:
             encoded_string = base64.b64encode(file.read()).decode("utf-8")
         self.main_client.dbfs.put(

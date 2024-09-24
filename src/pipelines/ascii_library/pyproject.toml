@@ -14,7 +14,8 @@ license = { text="MIT" }  # Or another license identifier
 dependencies = [
     "dagster>=1.8.0,<1.9",
     "dagster-pipes>=1.8.0,<1.9",
-    "boto3",
+    "boto3>=1.35.17,<1.35.18",
+    "boto3-stubs[s3,emr,pricing]>=1.35.21,<1.36",
 ]
 
 [project.optional-dependencies]
