@@ -3,7 +3,6 @@ import time
 from typing import List, Optional, Union
 
 import dagster._check as check
-from ascii_library.orchestration.resources.emr_constants import pipeline_bucket
 from botocore.client import BaseClient
 from botocore.exceptions import (
     ClientError,
@@ -31,6 +30,8 @@ from tenacity import (
     stop_after_delay,
     wait_exponential,
 )
+
+from ascii_library.orchestration.resources.emr_constants import pipeline_bucket
 
 from .utils import library_to_cloud_paths, package_library
 
@@ -95,16 +96,16 @@ class _PipesBaseCloudClient(PipesClient):
         ),
     )
     def _retrieve_state_emr(self, cluster_id):
-        return self.main_client.describe_cluster(ClusterId=cluster_id)
+        return self.main_client.describe_cluster(ClusterId=cluster_id)  # type: ignore
 
     def _handle_emr_polling(self, cluster_id):
         description = self._retrieve_state_emr(cluster_id)
         state = description["Cluster"]["Status"]["State"]
         dns = description["Cluster"].get("MasterPublicDnsName")  # Correct this part
-        if dns:
-            get_dagster_logger().debug(f"dns: {dns}")
         if state != self.last_observed_state:
-            get_dagster_logger().debug(
+            if dns:
+                get_dagster_logger().debug(f"dns: {dns}")
+            get_dagster_logger().info(
                 f"[pipes] EMR cluster id {cluster_id} observed state transition to {state}"
             )
             self.last_observed_state = state
@@ -122,7 +123,7 @@ class _PipesBaseCloudClient(PipesClient):
         retry=retry_if_exception_type((DatabricksError)),
     )
     def _retrieve_state_dbr(self, run_id):
-        return self.main_client.jobs.get_run(run_id)
+        return self.main_client.jobs.get_run(run_id)  # type: ignore
 
     def _handle_dbr_polling(self, run_id):
         run = self._retrieve_state_dbr(run_id)
@@ -145,8 +146,8 @@ class _PipesBaseCloudClient(PipesClient):
         self._tagging_client = kwargs.get("tagging_client")
         cont = True
         if kwargs.get("extras") is not None:
-            self.engine = kwargs.get("extras")["engine"]
-            self.executionMode = kwargs.get("extras")["execution_mode"]
+            self.engine = kwargs.get("extras")["engine"]  # type: ignore
+            self.executionMode = kwargs.get("extras")["execution_mode"]  # type: ignore
         while cont:
             if isinstance(self.main_client, BaseClient):
                 cont = self._handle_emr_polling(kwargs.get("cluster_id"))
@@ -168,7 +169,6 @@ class _PipesBaseCloudClient(PipesClient):
             return True
 
     def _handle_terminated_state_dbr(self, run):
-
         resources = self._tagging_client.get_resources(
             TagFilters=[
                 {

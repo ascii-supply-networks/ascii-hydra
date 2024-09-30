@@ -60,7 +60,7 @@ step1 = spark_pipes_asset_factory(
     local_spark_config=dev_spark_config(),
     databricks_cluster_config={
         "autoscale": {"min_workers": 1, "max_workers": 5},
-        "spark_version": "14.3.x-scala2.12",
+        "spark_version": "15.4.x-scala2.12",
         "aws_attributes": {
             "first_on_demand": 2,
             "availability": "SPOT_WITH_FALLBACK",
@@ -111,7 +111,7 @@ step2 = spark_pipes_asset_factory(
     local_spark_config=dev_spark_config(),
     databricks_cluster_config={
         "autoscale": {"min_workers": 1, "max_workers": 5},
-        "spark_version": "14.3.x-scala2.12",
+        "spark_version": "15.4.x-scala2.12",
         "aws_attributes": {
             "first_on_demand": 2,
             "availability": "SPOT_WITH_FALLBACK",

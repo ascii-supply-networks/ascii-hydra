@@ -1,7 +1,7 @@
 import json
 import os
 from contextlib import contextmanager
-from typing import Any, Iterator, List
+from typing import Any, Iterator
 
 import dagster._check as check
 from dagster import get_dagster_logger
@@ -13,8 +13,6 @@ from dagster_pipes import (
     PipesParams,
     PipesParamsLoader,
 )
-from mypy_boto3_s3 import S3Client
-from mypy_boto3_s3.type_defs import DeleteTypeDef, ObjectIdentifierTypeDef
 
 _CONTEXT_FILENAME = "context.json"
 
@@ -31,7 +29,7 @@ class PipesS3ContextInjector(PipesContextInjector):
 
     """
 
-    def __init__(self, *, bucket: str, client: S3Client, key_prefix: str):
+    def __init__(self, *, bucket: str, client, key_prefix: str):
         super().__init__()
         self.bucket = check.str_param(bucket, "bucket")
         self.client = client
@@ -65,7 +63,7 @@ class PipesS3ContextInjector(PipesContextInjector):
         pages = paginator.paginate(Bucket=self.bucket, Prefix=key)
 
         # Use a mutable list to collect objects
-        objects_to_delete: List[ObjectIdentifierTypeDef] = []
+        objects_to_delete = []
 
         for item in pages.search("Contents"):
             if item is not None and "Key" in item:
@@ -73,7 +71,7 @@ class PipesS3ContextInjector(PipesContextInjector):
 
             # Flush once AWS limit reached
             if len(objects_to_delete) >= 1000:
-                delete_us: DeleteTypeDef = {"Objects": objects_to_delete}
+                delete_us = {"Objects": objects_to_delete}
                 self.client.delete_objects(Bucket=self.bucket, Delete=delete_us)
                 objects_to_delete = []
 

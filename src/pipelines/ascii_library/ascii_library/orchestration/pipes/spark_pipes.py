@@ -1,8 +1,9 @@
 import os
 import warnings
 
-from ascii_library.orchestration.pipes import Engine, ExecutionMode
 from dagster import ConfigurableResource, ExperimentalWarning
+
+from ascii_library.orchestration.pipes import Engine, ExecutionMode
 
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
@@ -42,10 +43,11 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
             return PipesSubprocessClient()
         elif engine_to_use == Engine.Databricks:
             import boto3
+            from databricks.sdk import WorkspaceClient
+
             from ascii_library.orchestration.pipes.databricks import (
                 PipesDatabricksEnhancedClient,
             )
-            from databricks.sdk import WorkspaceClient
 
             workspace_client = WorkspaceClient(
                 host=os.environ.get("DATABRICKS_HOST", "dummy"),
@@ -65,6 +67,7 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
             )
         elif engine_to_use == Engine.EMR:
             import boto3
+
             from ascii_library.orchestration.pipes.emr import PipesEmrEnhancedClient
 
             aws_access_key_id = os.environ.get("ASCII_AWS_ACCESS_KEY_ID", "dummy")

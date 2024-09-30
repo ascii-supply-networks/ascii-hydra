@@ -3,8 +3,7 @@ import os
 from contextlib import ExitStack, contextmanager
 from typing import Iterator, Literal, Optional, Sequence, TextIO
 
-from ascii_library.orchestration.pipes.cloud_context import dbfs_tempdir
-from dagster._annotations import experimental
+import dagster._check as check
 from dagster._core.pipes.utils import (
     PipesBlobStoreMessageReader,
     PipesChunkedLogReader,
@@ -14,8 +13,9 @@ from dagster_pipes import PipesParams
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import files
 
+from ascii_library.orchestration.pipes.cloud_context import dbfs_tempdir
 
-@experimental
+
 class PipesDbfsMessageReader(PipesBlobStoreMessageReader):
     """Message reader that reads messages by periodically reading message chunks from an
     automatically-generated temporary directory on DBFS.
@@ -44,29 +44,28 @@ class PipesDbfsMessageReader(PipesBlobStoreMessageReader):
         )
         self.dbfs_client = files.DbfsAPI(client.api_client)
 
+    @contextmanager
+    def get_params(self) -> Iterator[PipesParams]:
+        with ExitStack() as stack:
+            params: PipesParams = {}
+            params["path"] = stack.enter_context(dbfs_tempdir(self.dbfs_client))
+            yield params
 
-@contextmanager
-def get_params(self) -> Iterator[PipesParams]:
-    with ExitStack() as stack:
-        params: PipesParams = {}
-        params["path"] = stack.enter_context(dbfs_tempdir(self.dbfs_client))  # type: ignore
-        yield params
-
-
-def download_messages_chunk(self, index: int, params: PipesParams) -> Optional[str]:
-    message_path = os.path.join(params["path"], f"{index}.json")
-    try:
-        raw_message = self.dbfs_client.read(message_path)
-        if raw_message.data is not None:
+    def download_messages_chunk(self, index: int, params: PipesParams) -> Optional[str]:
+        message_path = os.path.join(params["path"], f"{index}.json")
+        try:
+            raw_message = self.dbfs_client.read(message_path)
+            message_data = check.not_none(
+                raw_message.data, "Read message with null data."
+            )
             # Files written to dbfs using the Python IO interface used in PipesDbfsMessageWriter are
             # base64-encoded.
-            return base64.b64decode(raw_message.data).decode("utf-8")
-        return None
-    # An error here is an expected result, since an IOError will be thrown if the next message
-    # chunk doesn't yet exist. Swallowing the error here is equivalent to doing a no-op on a
-    # status check showing a non-existent file.
-    except IOError:
-        return None
+            return base64.b64decode(message_data).decode("utf-8")
+        # An error here is an expected result, since an IOError will be thrown if the next message
+        # chunk doesn't yet exist. Swallowing the error here is equivalent to doing a no-op on a
+        # status check showing a non-existent file.
+        except IOError:
+            return None
 
     def no_messages_debug_text(self) -> str:
         return (
@@ -76,14 +75,13 @@ def download_messages_chunk(self, index: int, params: PipesParams) -> Optional[s
         )
 
 
-@experimental
 class PipesDbfsLogReader(PipesChunkedLogReader):
     """Reader that reads a log file from DBFS.
 
     Args:
         interval (float): interval in seconds between attempts to download a log chunk
         remote_log_name (Literal["stdout", "stderr"]): The name of the log file to read.
-        target_stream (TextIO): The stream to which to forward log chunk that have been read.
+        target_stream (TextIO): The stream to which to forward log chunks that have been read.
         client (WorkspaceClient): A databricks `WorkspaceClient` object.
     """
 
@@ -148,6 +146,6 @@ class PipesDbfsLogReader(PipesChunkedLogReader):
                 None,
             )
             if match:
-                self.log_path = f"dbfs:{match.path}"  # type: ignore
+                self.log_path = f"dbfs:{match.path}"
 
         return self.log_path

@@ -3,6 +3,19 @@ import string
 from io import BytesIO, StringIO
 from typing import Any, Dict, List, Optional, Tuple
 
+from dagster import get_dagster_logger
+from dagster._annotations import experimental
+from dagster._core.definitions.resource_annotation import ResourceParam
+from dagster._core.errors import DagsterExecutionInterruptedError
+from dagster._core.execution.context.compute import OpExecutionContext  # type: ignore
+from dagster._core.pipes.client import (
+    PipesClientCompletedInvocation,
+    PipesContextInjector,
+    PipesMessageReader,
+)
+from dagster._core.pipes.utils import open_pipes_session
+from dagster_pipes import PipesExtras
+
 from ascii_library.orchestration.pipes import LibraryConfig, LibraryKind
 from ascii_library.orchestration.pipes.cloud_client import _PipesBaseCloudClient
 from ascii_library.orchestration.pipes.cloud_context_s3 import PipesS3ContextInjector
@@ -19,22 +32,6 @@ from ascii_library.orchestration.resources.emr_constants import pipeline_bucket
 from ascii_library.orchestration.resources.utils import (
     get_dagster_deployment_environment,
 )
-from dagster import get_dagster_logger
-from dagster._annotations import experimental
-from dagster._core.definitions.resource_annotation import ResourceParam
-from dagster._core.errors import DagsterExecutionInterruptedError
-from dagster._core.execution.context.compute import OpExecutionContext
-from dagster._core.pipes.client import (
-    PipesClientCompletedInvocation,
-    PipesContextInjector,
-    PipesMessageReader,
-)
-from dagster._core.pipes.utils import open_pipes_session
-from dagster_pipes import PipesExtras
-from mypy_boto3_emr import EMRClient
-from mypy_boto3_emr.type_defs import StepConfigTypeDef
-from mypy_boto3_pricing import PricingClient
-from mypy_boto3_s3 import S3Client
 
 
 @experimental
@@ -51,9 +48,9 @@ class _PipesEmrClient(_PipesBaseCloudClient):
 
     def __init__(
         self,
-        emr_client: EMRClient,
-        s3_client: S3Client,
-        price_client: PricingClient,
+        emr_client,
+        s3_client,
+        price_client,
         bucket: str,
         context_injector: Optional[PipesContextInjector] = None,
         message_reader: Optional[PipesMessageReader] = None,
@@ -146,7 +143,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         bucket: str,
         s3_path: str,
         emr_job_config: Dict[str, Any],
-        step_config: StepConfigTypeDef,
+        step_config,
         libraries_to_build_and_upload: Optional[List[str]] = None,
         libraries: Optional[List[LibraryConfig]] = None,
         extras: Optional[PipesExtras] = None,
@@ -189,9 +186,9 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                         emrClient=self._emr_client, priceClient=self._price_client
                     )
                 )
-                emr_job_config["ManagedScalingPolicy"]["ComputeLimits"][
-                    "UnitType"
-                ] = "InstanceFleetUnits"
+                emr_job_config["ManagedScalingPolicy"]["ComputeLimits"]["UnitType"] = (
+                    "InstanceFleetUnits"
+                )
             else:
                 raise ValueError(
                     "No instance groups or fleets defined, and fleet_config is None."
@@ -201,7 +198,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
     def submit_emr_job(
         self,
         emr_job_config: dict,
-        step_config: StepConfigTypeDef,
+        step_config,
         bucket: str,
         extras: PipesExtras,
     ) -> str:
@@ -239,7 +236,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         *,
         context: OpExecutionContext,
         emr_job_config: dict,
-        step_config: StepConfigTypeDef,  # Change from 'dict' to 'StepConfigTypeDef'
+        step_config,  # Change from 'dict' to 'StepConfigTypeDef'
         local_file_path: str,
         bucket: str,
         s3_path: str,

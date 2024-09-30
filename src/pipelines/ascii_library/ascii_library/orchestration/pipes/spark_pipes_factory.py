@@ -1,6 +1,16 @@
 import os
 import shutil
-from typing import List, Optional, Sequence, Union
+from typing import Any, List, Mapping, Optional, Sequence, Union
+
+from dagster import (
+    AssetExecutionContext,
+    AssetsDefinition,
+    MaterializeResult,
+    PartitionsDefinition,
+    PipesSubprocessClient,
+    asset,
+)
+from databricks.sdk.service import jobs
 
 from ascii_library.orchestration.pipes import LibraryConfig, LibraryKind
 from ascii_library.orchestration.pipes.databricks import PipesDatabricksEnhancedClient
@@ -11,16 +21,6 @@ from ascii_library.orchestration.resources.emr_constants import pipeline_bucket
 from ascii_library.orchestration.resources.utils import (
     get_dagster_deployment_environment,
 )
-from dagster import (
-    AssetExecutionContext,
-    AssetsDefinition,
-    Mapping,
-    MaterializeResult,
-    PartitionsDefinition,
-    PipesSubprocessClient,
-    asset,
-)
-from databricks.sdk.service import jobs
 
 deployment_env = get_dagster_deployment_environment()
 
@@ -43,9 +43,7 @@ def get_libs_dict(
     return libs_dict
 
 
-def update_spot_bid_price_percent(
-    fleet_config, new_spot_bid_price_percent
-):  # noqa: C901
+def update_spot_bid_price_percent(fleet_config, new_spot_bid_price_percent):  # noqa: C901
     if hasattr(fleet_config, "percentageOfOnDemandPrice"):
         fleet_config.percentageOfOnDemandPrice = new_spot_bid_price_percent
     return fleet_config
@@ -76,10 +74,10 @@ def spark_pipes_asset_factory(  # noqa: C901
     group_name: Optional[str] = None,
     local_spark_config: Optional[Mapping[str, str]] = None,
     libraries_to_build_and_upload: Sequence[str] = None,
-    databricks_cluster_config: Optional[Mapping[str, str]] = None,
-    libraries_config: Optional[Sequence[LibraryConfig]] = None,
-    emr_additional_libraries: Optional[Sequence[LibraryConfig]] = None,
-    dbr_additional_libraries: Optional[Sequence[LibraryConfig]] = None,
+    databricks_cluster_config: Optional[dict[str, Any]] = None,
+    libraries_config: Optional[List[LibraryConfig]] = None,
+    emr_additional_libraries: Optional[List[LibraryConfig]] = None,
+    dbr_additional_libraries: Optional[List[LibraryConfig]] = None,
     emr_job_config: Optional[dict] = None,
     override_default_engine: Optional[Engine] = None,
     fleet_filters: Optional[CloudInstanceConfig] = None,
@@ -132,7 +130,7 @@ def spark_pipes_asset_factory(  # noqa: C901
         )
         def inner_spark_pipes_asset(
             context: AssetExecutionContext,
-            config: cfg,
+            config: cfg,  # type: ignore
         ) -> MaterializeResult:
             client_params = handle_shared_parameters(context, config)
             return handle_pipeline_modes(context, client_params)  # type: ignore

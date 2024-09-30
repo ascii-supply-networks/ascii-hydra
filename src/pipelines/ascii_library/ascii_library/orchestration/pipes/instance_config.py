@@ -3,9 +3,6 @@ import re
 from typing import Any, Dict, List, Optional, Sequence
 
 from ascii_library.orchestration.resources import emr_constants
-from mypy_boto3_emr import EMRClient
-from mypy_boto3_emr.type_defs import ListSupportedInstanceTypesOutputTypeDef
-from mypy_boto3_pricing import PricingClient
 
 
 class CloudInstanceConfig:
@@ -37,7 +34,7 @@ class CloudInstanceConfig:
             "TaskInstanceCount", kwargs.get("InstanceCount", 1)
         )
         self.percentageOfOnDemandPrice = kwargs.get(
-            "percentageOfOnDemandPrice", emr_constants.percentageOfOnDemandPrice
+            "PercentageOfOnDemandPrice", emr_constants.percentageOfOnDemandPrice
         )
         self.reservationPreference = kwargs.get("ReservationPreference")
         self.allocationStrategy = kwargs.get("AllocationStrategy")
@@ -272,7 +269,6 @@ class CloudInstanceConfig:
         return fleet_config
 
     def get_default_fleet(self, **kwargs):
-
         master_config = CloudInstanceConfig(
             InstanceRole=emr_constants.InstanceRole.master.value,
             Market=emr_constants.Market.on_demand.value,
@@ -330,14 +326,14 @@ class CloudInstanceConfig:
 
     def get_available_instances(
         self,
-        emr_client: EMRClient,
+        emr_client,
         releaseLabel: Optional[str] = emr_constants.releaseLabel,
         **kwargs,
     ) -> List[Any]:
         if releaseLabel is None:
             raise ValueError("releaseLabel cannot be None")
         result = []
-        response: Optional[ListSupportedInstanceTypesOutputTypeDef] = None
+        response = None
         while True:
             if response is None or response.get("Marker") is None:
                 response = emr_client.list_supported_instance_types(
@@ -355,7 +351,7 @@ class CloudInstanceConfig:
         return result
 
     def get_instance_w_price(
-        self, price_client: PricingClient, instances: Sequence[Dict], n: int = 15
+        self, price_client, instances: Sequence[Dict], n: int = 15
     ):
         for instance in instances:
             response = price_client.get_products(
@@ -391,9 +387,7 @@ class CloudInstanceConfig:
             instanceTypeConfigs.append(temp)
         return instanceTypeConfigs
 
-    def get_fleet_programatically(
-        self, emrClient: EMRClient, priceClient: PricingClient
-    ):
+    def get_fleet_programatically(self, emrClient, priceClient):
         filter_values = [
             self.filters.get("VCPU"),
             self.filters.get(

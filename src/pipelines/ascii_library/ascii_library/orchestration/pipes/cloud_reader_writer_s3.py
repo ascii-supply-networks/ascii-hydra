@@ -10,7 +10,6 @@ from dagster_pipes import (
     PipesParams,
     PipesS3MessageWriterChannel,
 )
-from mypy_boto3_s3 import S3Client
 
 
 class PipesS3MessageReader(PipesBlobStoreMessageReader):
@@ -33,7 +32,7 @@ class PipesS3MessageReader(PipesBlobStoreMessageReader):
         interval: float = 10,
         bucket: str,
         key_prefix: str,
-        client: S3Client,
+        client,
         log_readers: Optional[Sequence[PipesLogReader]] = None,
     ):
         super().__init__(

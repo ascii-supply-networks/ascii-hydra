@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
-from ascii_library.orchestration.pipes import Engine, ExecutionMode
 from dagster_pipes import (
     PipesContext,
     PipesDbfsContextLoader,
@@ -14,6 +13,8 @@ from dagster_pipes import (
     open_dagster_pipes,
 )
 from pyspark.sql import SparkSession
+
+from ascii_library.orchestration.pipes import Engine, ExecutionMode
 
 
 class SparkScriptPipes(ABC):
@@ -98,7 +99,7 @@ class SparkScriptPipes(ABC):
             if engine == Engine.Local:
                 local_spark_config = context.get_extra("local_spark_config")
                 spark_cfg = local_spark_config["spark_conf"]
-                builder = SparkSession.builder.appName("ascii").master(
+                builder = SparkSession.builder.appName("ascii").master(  # type: ignore
                     spark_cfg["spark.master"]
                 )
                 for key, value in spark_cfg.items():
@@ -108,7 +109,7 @@ class SparkScriptPipes(ABC):
             elif engine in [Engine.Databricks, Engine.EMR]:
                 # we are on a remote cluster
                 # it is already initialized
-                spark = SparkSession.builder.getOrCreate()
+                spark = SparkSession.builder.getOrCreate()  # type: ignore
             else:
                 raise ValueError(f"Unsupported engine mode: {engine.value}")
 
@@ -128,6 +129,7 @@ class SparkScriptPipes(ABC):
             envvar = PipesEnvVarParamsLoader()
         elif engine == Engine.EMR:
             import boto3
+
             from ascii_library.orchestration.pipes.cloud_context_s3 import (
                 PipesS3ContextLoader,
                 PipesS3EnvVarParamsLoader,
