@@ -1,9 +1,8 @@
 import json
 import re
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from ascii_library.orchestration.resources import emr_constants
-from boto3 import client
 
 
 class CloudInstanceConfig:
@@ -35,7 +34,7 @@ class CloudInstanceConfig:
             "TaskInstanceCount", kwargs.get("InstanceCount", 1)
         )
         self.percentageOfOnDemandPrice = kwargs.get(
-            "percentageOfOnDemandPrice", emr_constants.percentageOfOnDemandPrice
+            "PercentageOfOnDemandPrice", emr_constants.percentageOfOnDemandPrice
         )
         self.reservationPreference = kwargs.get("ReservationPreference")
         self.allocationStrategy = kwargs.get("AllocationStrategy")
@@ -270,7 +269,6 @@ class CloudInstanceConfig:
         return fleet_config
 
     def get_default_fleet(self, **kwargs):
-
         master_config = CloudInstanceConfig(
             InstanceRole=emr_constants.InstanceRole.master.value,
             Market=emr_constants.Market.on_demand.value,
@@ -328,32 +326,32 @@ class CloudInstanceConfig:
 
     def get_available_instances(
         self,
-        emr_client: client,
+        emr_client,
         releaseLabel: Optional[str] = emr_constants.releaseLabel,
         **kwargs,
-    ):
+    ) -> List[Any]:
+        if releaseLabel is None:
+            raise ValueError("releaseLabel cannot be None")
         result = []
-        response: Dict[str, Any] = {}
+        response = None
         while True:
-            if response.get("Marker") is None:
+            if response is None or response.get("Marker") is None:
                 response = emr_client.list_supported_instance_types(
                     ReleaseLabel=releaseLabel
                 )
             else:
+                marker = response["Marker"]
                 response = emr_client.list_supported_instance_types(
-                    ReleaseLabel=releaseLabel, Marker=response.get("Marker")
+                    ReleaseLabel=releaseLabel, Marker=marker
                 )
-            result.extend(
-                self.add_prefix_suffix_to_instances(
-                    response.get("SupportedInstanceTypes")
-                )
-            )
+            supported_instance_types = response.get("SupportedInstanceTypes", [])
+            result.extend(self.add_prefix_suffix_to_instances(supported_instance_types))
             if response.get("Marker") is None:
                 break
         return result
 
     def get_instance_w_price(
-        self, price_client: client, instances: Sequence[Dict], n: int = 15
+        self, price_client, instances: Sequence[Dict], n: int = 15
     ):
         for instance in instances:
             response = price_client.get_products(
@@ -389,7 +387,7 @@ class CloudInstanceConfig:
             instanceTypeConfigs.append(temp)
         return instanceTypeConfigs
 
-    def get_fleet_programatically(self, emrClient: client, priceClient: client):
+    def get_fleet_programatically(self, emrClient, priceClient):
         filter_values = [
             self.filters.get("VCPU"),
             self.filters.get(

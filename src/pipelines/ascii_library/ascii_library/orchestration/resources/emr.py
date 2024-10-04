@@ -95,6 +95,7 @@ def get_emr_cluster_config(
             # "spark.memory.offHeap.size":36974886912,
             "spark.blacklist.decommissioning.timeout": "300s",
             "spark.yarn.appMasterEnv.SPARK_PIPES_ENGINE": "emr",
+            "spark.yarn.maxAppAttempts": "1",
             "spark.yarn.appMasterEnv.DAGSTER_PIPES_CONTEXT_ENV_VAR": "DAGSTER_PIPES_CONTEXT",
             "spark.yarn.appMasterEnv.DAGSTER_PIPES_MESSAGES_ENV_VAR": "DAGSTER_PIPES_MESSAGES",
         },

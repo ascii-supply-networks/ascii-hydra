@@ -3,6 +3,19 @@ import string
 from io import BytesIO, StringIO
 from typing import Any, Dict, List, Optional, Tuple
 
+from dagster import get_dagster_logger
+from dagster._annotations import experimental
+from dagster._core.definitions.resource_annotation import ResourceParam
+from dagster._core.errors import DagsterExecutionInterruptedError
+from dagster._core.execution.context.compute import OpExecutionContext  # type: ignore
+from dagster._core.pipes.client import (
+    PipesClientCompletedInvocation,
+    PipesContextInjector,
+    PipesMessageReader,
+)
+from dagster._core.pipes.utils import open_pipes_session
+from dagster_pipes import PipesExtras
+
 from ascii_library.orchestration.pipes import LibraryConfig, LibraryKind
 from ascii_library.orchestration.pipes.cloud_client import _PipesBaseCloudClient
 from ascii_library.orchestration.pipes.cloud_context_s3 import PipesS3ContextInjector
@@ -19,19 +32,6 @@ from ascii_library.orchestration.resources.emr_constants import pipeline_bucket
 from ascii_library.orchestration.resources.utils import (
     get_dagster_deployment_environment,
 )
-from boto3 import client
-from dagster import get_dagster_logger
-from dagster._annotations import experimental
-from dagster._core.definitions.resource_annotation import ResourceParam
-from dagster._core.errors import DagsterExecutionInterruptedError
-from dagster._core.execution.context.compute import OpExecutionContext
-from dagster._core.pipes.client import (
-    PipesClientCompletedInvocation,
-    PipesContextInjector,
-    PipesMessageReader,
-)
-from dagster._core.pipes.utils import open_pipes_session
-from dagster_pipes import PipesExtras
 
 
 @experimental
@@ -48,9 +48,9 @@ class _PipesEmrClient(_PipesBaseCloudClient):
 
     def __init__(
         self,
-        emr_client: client,
-        s3_client: client,
-        price_client: client,
+        emr_client,
+        s3_client,
+        price_client,
         bucket: str,
         context_injector: Optional[PipesContextInjector] = None,
         message_reader: Optional[PipesMessageReader] = None,
@@ -143,7 +143,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         bucket: str,
         s3_path: str,
         emr_job_config: Dict[str, Any],
-        step_config: Dict[str, Any],
+        step_config,
         libraries_to_build_and_upload: Optional[List[str]] = None,
         libraries: Optional[List[LibraryConfig]] = None,
         extras: Optional[PipesExtras] = None,
@@ -171,12 +171,72 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             extras["step_config"] = step_config
         return extras, emr_job_config
 
+    def adjust_emr_job_config(
+        self,
+        emr_job_config: dict,
+        fleet_config: Optional[CloudInstanceConfig],
+    ) -> dict:
+        if (
+            emr_job_config["Instances"].get("InstanceGroups") is None
+            and emr_job_config["Instances"].get("InstanceFleets") is None
+        ):
+            if fleet_config is not None:
+                emr_job_config["Instances"]["InstanceFleets"] = (
+                    fleet_config.get_fleet_programatically(
+                        emrClient=self._emr_client, priceClient=self._price_client
+                    )
+                )
+                emr_job_config["ManagedScalingPolicy"]["ComputeLimits"]["UnitType"] = (
+                    "InstanceFleetUnits"
+                )
+            else:
+                raise ValueError(
+                    "No instance groups or fleets defined, and fleet_config is None."
+                )
+        return emr_job_config
+
+    def submit_emr_job(
+        self,
+        emr_job_config: dict,
+        step_config,
+        bucket: str,
+        extras: PipesExtras,
+    ) -> str:
+        emr_job_config = self.modify_env_var(
+            cluster_config=emr_job_config, key="bucket", value=bucket
+        )
+        emr_job_config = self.modify_env_var(
+            cluster_config=emr_job_config, key="key", value=self._key_prefix
+        )
+
+        job_flow = self._emr_client.run_job_flow(**emr_job_config)
+        get_dagster_logger().debug(f"EMR configuration: {job_flow}")
+        self._emr_client.add_tags(
+            ResourceId=job_flow["JobFlowId"],
+            Tags=[
+                {"Key": "jobId", "Value": job_flow["JobFlowId"]},
+                {"Key": "executionMode", "Value": extras["execution_mode"]},
+                {"Key": "engine", "Value": extras["engine"]},
+            ],
+        )
+        self._emr_client.add_job_flow_steps(
+            JobFlowId=job_flow["JobFlowId"],
+            Steps=[step_config],
+        )
+        get_dagster_logger().info(
+            f"If not signed in on Rackspace, please do it now: https://manage.rackspace.com/aws/account/{rackspace_user}/consoleSignin"
+        )
+        get_dagster_logger().info(
+            f"EMR URL: https://{aws_region}.console.aws.amazon.com/emr/home?region={aws_region}#/clusterDetails/{job_flow['JobFlowId']}"
+        )
+        return job_flow["JobFlowId"]
+
     def run(  # type: ignore
         self,
         *,
         context: OpExecutionContext,
         emr_job_config: dict,
-        step_config: dict,
+        step_config,  # Change from 'dict' to 'StepConfigTypeDef'
         local_file_path: str,
         bucket: str,
         s3_path: str,
@@ -186,25 +246,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         fleet_config: Optional[CloudInstanceConfig] = None,
     ) -> PipesClientCompletedInvocation:
         """Synchronously execute an EMR job with the pipes protocol."""
-        if (
-            emr_job_config["Instances"].get("InstanceGroups") is None
-            and emr_job_config["Instances"].get("InstanceFleets") is None
-            and fleet_config is not None
-        ):
-            emr_job_config["Instances"]["InstanceFleets"] = (
-                fleet_config.get_fleet_programatically(
-                    emrClient=self._emr_client, priceClient=self._price_client
-                )
-            )
-            emr_job_config["ManagedScalingPolicy"]["ComputeLimits"][
-                "UnitType"
-            ] = "InstanceFleetUnits"
-        elif (
-            emr_job_config["Instances"].get("InstanceGroups") is None
-            and emr_job_config["Instances"].get("InstanceFleets") is None
-            and fleet_config is None
-        ):
-            raise
+        emr_job_config = self.adjust_emr_job_config(emr_job_config, fleet_config)
         extras, emr_job_config = self.prepare_emr_job(
             local_file_path=local_file_path,
             bucket=bucket,
@@ -215,53 +257,32 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             libraries=libraries,
             extras=extras,
         )
+
+        if extras is None:
+            raise ValueError("Extras cannot be None.")
+
         with open_pipes_session(
             context=context,
             message_reader=self._message_reader,
             context_injector=self._context_injector,
             extras=extras,
         ) as session:
-            if extras is not None:
-                emr_job_config = extras.get("emr_job_config")  # type: ignore
-                emr_job_config = self.modify_env_var(
-                    cluster_config=emr_job_config, key="bucket", value=bucket
+            emr_job_config = extras.get("emr_job_config")  # type: ignore
+            try:
+                cluster_id = self.submit_emr_job(
+                    emr_job_config=emr_job_config,
+                    step_config=step_config,
+                    bucket=bucket,
+                    extras=extras,
                 )
-                emr_job_config = self.modify_env_var(
-                    cluster_config=emr_job_config, key="key", value=self._key_prefix
-                )
-                try:
-                    job_flow = self._emr_client.run_job_flow(**emr_job_config)
-                    get_dagster_logger().debug(f"EMR configuration: {job_flow}")
-                    self._emr_client.add_tags(
-                        ResourceId=job_flow["JobFlowId"],
-                        Tags=[
-                            {"Key": "jobId", "Value": job_flow["JobFlowId"]},
-                            {"Key": "executionMode", "Value": extras["execution_mode"]},
-                            {"Key": "engine", "Value": extras["engine"]},
-                        ],
-                    )
-                    self._emr_client.add_job_flow_steps(
-                        JobFlowId=job_flow["JobFlowId"],
-                        Steps=[extras.get("step_config")],
-                    )
-                    get_dagster_logger().info(
-                        f"If not sign in on Rackspace, please do it now: https://manage.rackspace.com/aws/account/{rackspace_user}/consoleSignin"
-                    )
-                    get_dagster_logger().info(
-                        f"EMR url: https://{aws_region}.console.aws.amazon.com/emr/home?region={aws_region}#/clusterDetails/{job_flow['JobFlowId']}"
-                    )
-                    self._poll_till_success(cluster_id=job_flow["JobFlowId"])
-                except DagsterExecutionInterruptedError:
-                    context.log.info(
-                        "[pipes] execution interrupted, canceling EMR job."
-                    )
-                    self._emr_client.terminate_job_flows(
-                        JobFlowIds=[job_flow["JobFlowId"]]
-                    )
-                    raise
-                finally:
-                    get_dagster_logger().debug("finished")
-            return PipesClientCompletedInvocation(session)
+                self._poll_till_success(cluster_id=cluster_id)
+            except DagsterExecutionInterruptedError:
+                context.log.info("[pipes] execution interrupted, canceling EMR job.")
+                self._emr_client.terminate_job_flows(JobFlowIds=[cluster_id])
+                raise
+            finally:
+                get_dagster_logger().debug("finished")
+        return PipesClientCompletedInvocation(session)
 
 
 PipesEmrEnhancedClient = ResourceParam[_PipesEmrClient]

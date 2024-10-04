@@ -7,18 +7,13 @@ name = "ascii_library"
 version = "0.0.1"
 description = "Your project description"
 authors = [
-    { name="Georg Heiler", email="georg.heiler@ascii.ac.at" },
-    { name="Hernan Picatto", email="hernan.picatto@ascii.ac.at" }
+  { name = "Georg Heiler", email = "georg.heiler@ascii.ac.at" },
+  { name = "Hernan Picatto", email = "hernan.picatto@ascii.ac.at" },
 ]
-license = { text="MIT" }  # Or another license identifier
-dependencies = [
-    "dagster>=1.8.0,<1.9",
-    "dagster-pipes>=1.8.0,<1.9",
-    "boto3",
-]
+license = { text = "MIT" } # Or another license identifier
+dependencies = ["dagster>=1.8.7,<1.9", "dagster-pipes>=1.8.7,<1.9", "boto3"]
 
 [project.optional-dependencies]
-# Define any optional dependencies here
 
 [project.urls]
 # Define project-related URLs such as homepage or documentation

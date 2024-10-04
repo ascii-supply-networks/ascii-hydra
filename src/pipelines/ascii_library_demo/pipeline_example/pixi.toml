@@ -5,7 +5,7 @@ pip = ">=24.2"
 [environments]
 ci = { features = ["ci"], solve-group = "ci" }
 example = { features = ["example"], solve-group = "example" }
-testing = { features = ["ci","example", ], solve-group = "example" }
+testing = { features = ["ci", "example"], solve-group = "example" }
 
 [feature.ci.dependencies]
 pytest = ">=8.3.2,<9"
@@ -26,15 +26,15 @@ pyspark = "~=3.5.1"
 openjdk = "~=17.0.11"
 fsspec = ">=2024.6.1"
 s3fs = ">=2024.6.1"
-dagster = "~=1.8.0"
-dagster-webserver = "~=1.8.0"
-dagster-pipes = "~=1.8.0"
+dagster = "~=1.8.4"
+dagster-webserver = "~=1.8.4"
+dagster-pipes = "~=1.8.4"
 
 [feature.example.pypi-dependencies]
 tenacity = ">=8.5.0,<10"
-dagster-aws = ">=0.24.0,<0.25"
-dagster-pyspark = ">=0.24.0,<0.25"
-dagster-databricks = ">=0.24.0,<0.25"
+dagster-aws = ">=0.24.4,<0.25"
+dagster-pyspark = ">=0.24.4,<0.25"
+dagster-databricks = ">=0.24.4,<0.25"
 
 delta-spark = "~=3.2.0"
 deltalake = ">=0.18.2,<0.19"

@@ -1,4 +1,5 @@
 import os
+from typing import Any, Dict
 
 from dagster_pyspark import lazy_pyspark_resource
 
@@ -17,7 +18,7 @@ def dev_spark_config(
     url: str = None,
     AWS_ACCESS_KEY_ID: str = "ASCII_AWS_ACCESS_KEY_ID",
     AWS_SECRET_ACCESS_KEY: str = "ASCII_AWS_SECRET_ACCESS_KEY",
-):
+) -> Dict[str, Any]:
     try:
         key = os.environ[AWS_ACCESS_KEY_ID]
         secret = os.environ[AWS_SECRET_ACCESS_KEY]
@@ -61,7 +62,7 @@ def dev_spark_config(
             "spark.hadoop.fs.s3a.secret.key": secret,
             "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
             "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog",
-            "spark.jars.packages": "io.delta:delta-spark_2.12:3.2.0,org.postgresql:postgresql:42.7.0,org.apache.hadoop:hadoop-aws:3.3.4,org.apache.spark:spark-hadoop-cloud_2.12:3.5.0",
+            "spark.jars.packages": "io.delta:delta-spark_2.12:3.2.0,org.postgresql:postgresql:42.7.4,org.apache.hadoop:hadoop-aws:3.3.4,org.apache.spark:spark-hadoop-cloud_2.12:3.5.0",
             "spark.databricks.delta.schema.autoMerge.enabled": "True",
             "spark.databricks.delta.schema.autoMerge.enabledOnWrite": "True",
         }

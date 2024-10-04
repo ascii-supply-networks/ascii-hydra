@@ -15,7 +15,7 @@ from dagster._core.errors import DagsterPipesExecutionError
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import DatabricksError
 from databricks.sdk.service import jobs
-from moto import mock_aws
+from moto import mock_aws  # type: ignore
 from tenacity import (
     BaseRetrying,
     RetryCallState,
@@ -38,7 +38,7 @@ class NonAbstractPipesCloudClient(_PipesBaseCloudClient):
         retry=retry_if_exception_type(DatabricksError),
     )
     def _retrieve_state_dbr(self, run_id):
-        return self.main_client.jobs.get_run(run_id)
+        return self.main_client.jobs.get_run(run_id)  # type: ignore
 
 
 class MockRetrying(BaseRetrying):
@@ -249,7 +249,7 @@ def test_log_transition_state(mock_get_dagster_logger, mock_emr_client):
     result = client._handle_emr_polling(cluster_id="example_cluster_id")
     assert result is True
     assert client.last_observed_state == "RUNNING"
-    mock_logger.debug.assert_any_call(
+    mock_logger.info.assert_any_call(
         "[pipes] EMR cluster id example_cluster_id observed state transition to RUNNING"
     )
     mock_logger.debug.assert_any_call("dns: example-dns")
@@ -277,7 +277,7 @@ def test_handle_emr_polling_terminated_state(mock_get_dagster_logger, mock_emr_c
     result = client._handle_emr_polling(cluster_id="example_cluster_id")
     assert result is False
     assert client.last_observed_state == "TERMINATED"
-    mock_logger.debug.assert_any_call(
+    mock_logger.info.assert_any_call(
         "[pipes] EMR cluster id example_cluster_id observed state transition to TERMINATED"
     )
     mock_emr_client.describe_cluster.assert_called_once_with(
@@ -309,7 +309,7 @@ def test_handle_emr_polling_terminated_with_errors_state(
     ):
         client._handle_emr_polling(cluster_id="example_cluster_id")
     assert client.last_observed_state == "TERMINATED_WITH_ERRORS"
-    mock_logger.debug.assert_any_call(
+    mock_logger.info.assert_any_call(
         "[pipes] EMR cluster id example_cluster_id observed state transition to TERMINATED_WITH_ERRORS"
     )
     mock_emr_client.describe_cluster.assert_called_once_with(
@@ -325,7 +325,7 @@ def test_retrieve_state_dbr_success(mock_workspace_client):
     client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
     result = client._retrieve_state_dbr("12345")
     assert result == mock_run
-    client.main_client.jobs.get_run.assert_called_once_with("12345")
+    client.main_client.jobs.get_run.assert_called_once_with("12345")  # type: ignore
 
 
 def test_retrieve_state_dbr_run_id_not_exist(mock_workspace_client):
@@ -349,7 +349,7 @@ def test_retrieve_state_dbr_retry_success(mock_workspace_client):
     result = client._retrieve_state_dbr("12345")
     assert result == mock_run
     assert mock_workspace_client.jobs.get_run.call_count == 2
-    client.main_client.jobs.get_run.assert_called_with("12345")
+    client.main_client.jobs.get_run.assert_called_with("12345")  # type: ignore
 
 
 def test_correctly_returns_run_state(mock_workspace_client):
@@ -357,7 +357,7 @@ def test_correctly_returns_run_state(mock_workspace_client):
     client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
     result = client._retrieve_state_dbr("12345")
     assert result == mock_run
-    client.main_client.jobs.get_run.assert_called_once_with("12345")
+    client.main_client.jobs.get_run.assert_called_once_with("12345")  # type: ignore
 
 
 def test_logs_retry_attempts_and_sleep_time(caplog, mock_workspace_client):
