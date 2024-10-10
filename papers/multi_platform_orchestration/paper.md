@@ -22,13 +22,13 @@ authors:
     equal-contrib: true 
     affiliation: "1, 2, 3, 4"
 affiliations:
- - name: Supply Chain Intelligence Institute Austria, Josefst¨adterstraße 39, 1080 Vienna, Austria
+ - name: Supply Chain Intelligence Institute Austria, Austria
    index: 1
- - name: Complexity Science Hub Vienna, Josefst¨adterstraße 39, 1080 Vienna, Austria 
+ - name: Complexity Science Hub Vienna,  Austria 
    index: 2
- - name: Institute of the Science of Complex Systems, Center for Medical Data Science CeDAS, Medical University of Vienna, Spitalgasse 23, 1090 Vienna, Austria
+ - name: Institute of the Science of Complex Systems, Center for Medical Data Science CeDAS, Medical University of Vienna, Austria
    index: 3
- - name: Division of Insurance Medicine, Department of Clinical Neuroscience, Karolinska Institutet, SE-17177 Stockholm, Sweden
+ - name: Division of Insurance Medicine, Department of Clinical Neuroscience, Karolinska Institutet, Sweden
    index: 4
 date: 16 Sep 2024
 bibliography: paper.bib
@@ -40,26 +40,48 @@ print-pdf:
 
 ## Summary
 
-The rapid growth of big data has increased the demand for efficient processing.
-Spark-based Platform-as-a-Service (PaaS) options like Databricks (DBR) and Amazon Web Services Elastic MapReduce (EMR) offer powerful analytics but come with high operational costs and vendor lock-in [@kumar].
-These platforms are user-friendly, yet their pricing models often lead to inefficiencies.
-This paper introduces a cost-effective orchestration framework leveraging Dagster [@dagster] to reduce dependency on a single PaaS provider by integrating multiple Spark environments.
-Our solution enhances efficiency, enforces best practices, and cuts costs.
-We achieved a 12% speedup on EMR and reduced costs by 40% compared to DBR, saving over 300 euros per pipeline run.
-This framework supports rapid prototyping while facilitating continuous development and large-scale data processing.
+The rapid evolution of big data has amplified the need for robust and efficient data processing.
+Spark-based Platform-as-a-Service (PaaS) options, like Databricks and Amazon EMR, offer strong analytics.
+But at the cost of high operational expenses and vendor lock-in [@kumar].
+Despite being user-friendly, their cost structures and opaque pricing can lead to inefficiencies.
 
-## Statement of Need
+This paper introduces a cost-effective, flexible orchestration framework leveraging Dagster [@dagster].
+Our solution reduces reliance on a single PaaS provider.
+It does this by integrating multiple Spark environments.
+We showcase Dagster's power to boost efficiency.
+It enforces coding best practices and reduce costs.
+Our implementation showed a 12% speedup over EMR.
+It cut costs by 40% compared to DBR, saving over 300 euros per pipeline run.
+Our framework supports rapid prototyping and testing.
+This is key for continuous development and efficiency.
+It promotes a sustainable model for large-scale data processing.
 
-Spark-based PaaS platforms like Databricks are convenient but are known to cause vendor lock-in and unpredictable costs [@Zaharia].
-This leads to inefficiencies and higher expenses.
-Our solution uses Dagster to integrate various Spark environments.
-This reduces reliance on a single provide, cuts costs by optimizing resource use, maintains performance and enables agile, scalable data operations.
-Furthermore, the solution ensures consistency across development stages which in turn allows for the replication of scientific experiments under identical conditions.
-This is key for verifiable research.
+## Statement of Need and Relevance
 
-Our work addresses research gaps with respect to cloud computing.
-Previous work such as [@Anil] focused on energy-efficient scheduling, while [@Daw] explored predictive analytics for cloud resource scaling.
-Our approach seeks to bridge such approaches by using a multi-cloud strategy with open orchestration tools like Dagster
+In large-scale data processing, Spark-based PaaS like Databricks are user-friendly and powerful.
+But, they have vendor lock-in and unpredictable costs [@Zaharia].
+This convenience can lead to inefficient resource use, impacting productivity and increasing expenses.
+
+Our solution uses Dagster's orchestration to integrate diverse Spark environments.
+This reduces reliance on a single provider.
+This mitigates lock-in risks, cuts costs, and promotes best coding practices.
+This boosts productivity by rapidly prototyping on smaller datasets.
+It cuts costs by optimizing resource use, without sacrificing performance.
+This approach is vital for organizations seeking agile, scalable, and cost-effective data operations.
+
+Also, this approach ensures consistency across development stages.
+It helps verify and replicate results, which is critical in scientific research.
+Using a tool like Dagster, researchers can create better workflows.
+It will foster a collaborative scientific environment.
+Their methods will be as open as their findings.
+
+While data pipeline research is growing, existing works focus on different aspects.
+Anil et al. [@Anil] emphasize optimizing big data processing.
+Use energy-efficient scheduling to reduce consumption and latency in data centers.
+Daw et al. [@Daw] explore using predictive analytics to automate resource scaling in cloud environments.
+This aims to optimize cost and performance.
+Our multi-cloud strategy leverages open orchestration tools like Dagster.
+This approach bridges existing gaps, deftly managing data tasks across diverse PaaS.
 
 ## Relevance
 
@@ -146,102 +168,11 @@ It optimizes resources and enables task submission to the best platforms.
 
 [^1]: Common Crawl was accessed between October 2023 and March 2024 from [Common Crawl](https://registry.opendata.aws/commoncrawl).
 
-## Implementation Challenges
+### Further Details
 
-The implementation of new computational platforms, despite its potential for cost savings and flexibility, is a substantial
-operational challenges.
-A particular challenge is the transition from DBR to AWS EMR.
-Figure  \ref{fig:stackedTrial} indeed shows a higher failure rate in EMR than in Databricks.
-This transition therefore requires constant adjustments and oversight with EMR
+For detailed information on the implementation challenges encountered during the development of our framework, please refer to [Appendix 1](appendix_1.md).
 
-![Stacked Plot of Trail Runs by Platform.\label{fig:stackedTrial}](./static/sample_run_by_status.png)
-
-Working with EMR (or any less user-friendly PaaS) demands a steep learning curve.
-The initial setup, despite our familiarity with Spark, proved labor-intensive.
-The need for nearly double the trial runs for EMR, compared to Databricks, to achieve production stability shows its complex setup and optimization requirements.
-We used an iterative process that included:
-
-- Configuring node labeling within YARN to ensure stable core nodes handle critical tasks.
-- Maximizing resource allocation, especially when not in fleet mode.
-- Addressing EMR’s specific memory management challenges, striking a balance between performance and cost.
-- Optimize maintenance tasks, like vacuum operations in Delta Lake. They were automatically handled on Databricks
-
-![Effort Needed for Implementing Each Platform Client.\label{fig:linePlatform}](./static/line_development.png)
-
-Configuration insights came from constant refinement, showing the need for an engaged, experimental approach to managing
-EMR.
-Figure \ref{fig:linePlatform} uantitatively depicts this iterative learning process.
-These results emphasize the continuous efforts and small improvements necessary to build a robust, cost-efficient platform.
-
-This process also involved fine-tuning YARN’s configurations.
-It ensured that critical tasks were allocated to more stable core nodes.
-We found that it was critical to enable the `yarn.node-labels.enabled` parameter.
-Then, set `yarn.node-labels.am.default-node-label-expression` to `CORE`.
-Also, in non-fleet mode, set `maximizeResourceAllocation` to true to use resources efficiently.
-
-Understanding EMR’s specific memory management challenges therefore turned out to be essential.
-Doubling memory allocations improved performance and kept costs low.
-However, it sometimes led to longer run times than Databricks.
-This shows the need to balance cost and performance when using EMR.
-
-To fix slow operations, especially Delta Lake vacuum tasks, it was key to enable parallel deletion by setting `spark.databricks.delta.vacuum.parallelDelete.enabled`
-to true.
-This optimization was crucial for efficient maintenance.
-Databricks handled this automatically while EMR required experimentation to find the right parameter.
-
-Our custom enhancements were designed to integrate with our existing infrastructure.
-They include the Dagster Context
-Injector, Message Reader, and Cloud Client Innovations.
-They offer solutions not met by generic open-source Dagster implementations.
-Our aim is therefore to contribute to the community to address such issues wherever we can.
-Some changes will stay separate from the Dagster repo to preserve their specialized functions.
-Our architecture prioritizes using Dagster to build data processing environments.
-This lets us leverage its core features while enhancing them with custom solutions.
-
-## Platform Comparison
-
-Table \ref{tab:costTable} shows the computational costs for processing the same Common Crawl data batch on EMR and DBR.
-DBR outperforms other options, especially in compute-heavy tasks like edge processing.
-But it is much more expensive.
-This advantage cuts operational and development time.
-It may justify the premium for time-sensitive projects.
-EMR, on the other hand, is cheaper.
-It suits budget projects that need scalable data processing.
-
-\begin{landscape}
-\begin{table}[]
-\begin{tabular}{llllllllll}
-\hline
-Run & Step        & Platform & Duration & Total Cost & Platform Surcharge & EBS Cost & EC2 Cost & Aggregated Total Cost & Aggregated Total Surcharge \\ \hline
-1   & nodes       & EMR      & 0.35     & \$0.40     & \$0.07             & \$0.01   & \$0.32   & \$422.95              & \$90.17                    \\
-1   & edges       & EMR      & 9.99     & \$402.54   & \$80.19            & \$13.72  & \$308.63 &                       &                            \\
-1   & graph       & DBR      & 0.38     & \$18.30    & \$9.78             & \$0.08   & \$8.44   &                       &                            \\
-1   & graph\_aggr & EMR      & 0.27     & \$1.71     & \$0.13             & \$0.02   & \$1.56   &                       &                            \\ \hline
-2   & nodes       & DBR      & 0.23     & \$0.50     & \$0.13             & \$0.00   & \$0.37   & \$784.64              & \$252.74                   \\
-2   & edges       & DBR      & 5.71     & \$766.17   & \$240.79           & \$22.47  & \$502.91 &                       &                            \\
-2   & graph       & DBR      & 0.38     & \$17.04    & \$11.61            & \$0.26   & \$5.17   &                       &                            \\
-2   & graph\_aggr & DBR      & 0.11     & \$0.93     & \$0.21             & \$0.00   & \$0.72   &                       &                            \\ \hline
-3   & nodes       & EMR      & 0.43     & \$0.42     & \$0.06             & \$0.00   & \$0.36   & \$417.06              & \$83.37                    \\
-3   & edges       & EMR      & 10.49    & \$409.03   & \$82.19            & \$13.82  & \$313.02 &                       &                            \\
-3   & graph       & EMR      & 0.94     & \$4.71     & \$1.05             & \$0.07   & \$3.59   &                       &                            \\
-3   & graph\_aggr & EMR      & 0.23     & \$2.90     & \$0.07             & \$0.00   & \$2.83   &                       &                            \\ \hline
-\end{tabular}
-\caption{Overview of Computational Costs Across Pipeline Configuration.}
-\label{tab:costTable}
-\end{table}
-\end{landscape}
-
-![Total Cost Production Runs by Asset.\label{fig:costProduction}](./static/total_costs_production_runs.png)
-
-Figure \ref{fig:costProduction} shows costs across multiple Common Crawl batches whereas \ref{fig:durationProduction} compares step durations.
-Taken together, these results visualize the trade-off between platforms for different tasks.
-DBR had the fastest times due to its optimized runtime.
-It uses an optimized Spark version and a C-based rewrite (Photon).
-DBR’s pre-configured settings improve usability and efficiency.
-They eliminate the need for extensive manual tuning required with EMR.
-This further underscores DBR’s cost-effectiveness in resource and time savings.
-
-![Total Duration Production Runs by Asset.\label{fig:durationProduction}](./static/step_duration_runs.png)
+For a comprehensive comparison of the platforms used in our study, please refer to [Appendix 2](appendix_2.md).
 
 ## Acknowledgments
 
