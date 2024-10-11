@@ -1,11 +1,11 @@
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from dagster_pyspark import lazy_pyspark_resource
 
 
 def get_pyspark_config(
-    url: str = None,
+    url: Optional[str] = None,
     AWS_ACCESS_KEY_ID: str = "ASCII_AWS_ACCESS_KEY_ID",
     AWS_SECRET_ACCESS_KEY: str = "ASCII_AWS_SECRET_ACCESS_KEY",
 ):
@@ -15,7 +15,7 @@ def get_pyspark_config(
 
 
 def dev_spark_config(
-    url: str = None,
+    url: Optional[str] = None,
     AWS_ACCESS_KEY_ID: str = "ASCII_AWS_ACCESS_KEY_ID",
     AWS_SECRET_ACCESS_KEY: str = "ASCII_AWS_SECRET_ACCESS_KEY",
 ) -> Dict[str, Any]:

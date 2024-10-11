@@ -691,8 +691,8 @@ def test_ensure_library_on_cloud(
 
     expected_calls = [
         call(client_file_path, "../../../../test_library"),
-        call(client_file_path, "../../../../test_library"),
     ]
+
     mock_file_relative_path.assert_has_calls(expected_calls, any_order=True)
     mock_package_library.assert_called_once()
     mock_upload_file_to_cloud.assert_called_once_with(
@@ -765,6 +765,7 @@ def test_upload_file_to_cloud_dbfs(
     temp_library,
     mock_workspace_client,
 ):
+    temp_library = "/path/to/test_file.py"
     client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
     cloud_path = "dbfs:/test-file.zip"
 
@@ -772,6 +773,27 @@ def test_upload_file_to_cloud_dbfs(
 
     mock_upload_file_to_s3.assert_not_called()
     mock_upload_file_to_dbfs.assert_called_once_with(temp_library, cloud_path)
+    mock_handle_exep.assert_not_called()
+
+
+@patch.object(NonAbstractPipesCloudClient, "_upload_file_to_s3")
+@patch.object(NonAbstractPipesCloudClient, "_upload_file_to_dbfs")
+@patch.object(NonAbstractPipesCloudClient, "handle_exep")
+def test_upload_file_to_cloud_s3_if_whl(
+    mock_handle_exep,
+    mock_upload_file_to_dbfs,
+    mock_upload_file_to_s3,
+    temp_library,
+    mock_workspace_client,
+):
+    temp_library = "/path/to/test_file.whl"
+    client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+    cloud_path = "s3:/bucket/test-file.zip"
+
+    client._upload_file_to_cloud(local_file_path=temp_library, cloud_path=cloud_path)
+
+    mock_upload_file_to_s3.assert_called_once_with(temp_library, cloud_path)
+    mock_upload_file_to_dbfs.assert_not_called()
     mock_handle_exep.assert_not_called()
 
 

@@ -2,8 +2,8 @@ import sys
 import time
 from typing import Any, Dict, List, Mapping, Optional
 
+import boto3
 import dagster._check as check
-from boto3 import client
 from dagster._annotations import experimental
 from dagster._core.definitions.resource_annotation import ResourceParam
 from dagster._core.errors import DagsterExecutionInterruptedError
@@ -14,17 +14,17 @@ from dagster._core.pipes.client import (
     PipesMessageReader,
 )
 from dagster._core.pipes.utils import open_pipes_session
+from dagster_databricks import (
+    PipesDbfsContextInjector,
+    PipesDbfsLogReader,
+    PipesDbfsMessageReader,
+)
 from dagster_pipes import PipesExtras
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import jobs
 from pydantic import Field
 
 from ascii_library.orchestration.pipes.cloud_client import _PipesBaseCloudClient
-from ascii_library.orchestration.pipes.cloud_context import PipesDbfsContextInjector
-from ascii_library.orchestration.pipes.cloud_reader_writer import (
-    PipesDbfsLogReader,
-    PipesDbfsMessageReader,
-)
 
 
 @experimental
@@ -53,7 +53,7 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
     def __init__(
         self,
         client: WorkspaceClient,
-        tagging_client=client,
+        tagging_client: boto3.client,  # type: ignore
         context_injector: Optional[PipesContextInjector] = None,
         message_reader: Optional[PipesMessageReader] = None,
         forward_termination: bool = True,
@@ -122,6 +122,7 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
         self._upload_file_to_cloud(
             local_file_path=local_file_path, cloud_path=dbfs_path
         )
+        self.filesystem = "s3"
         self._ensure_library_on_cloud(
             libraries_to_build_and_upload=libraries_to_build_and_upload
         )

@@ -5,14 +5,20 @@ from typing import Any, List, Mapping, Optional, Sequence, Union
 from dagster import (
     AssetExecutionContext,
     AssetsDefinition,
+    Config,
     MaterializeResult,
     PartitionsDefinition,
     PipesSubprocessClient,
     asset,
 )
 from databricks.sdk.service import jobs
+from pydantic import Field
 
-from ascii_library.orchestration.pipes import LibraryConfig, LibraryKind
+from ascii_library.orchestration.pipes import (
+    LibraryConfig,
+    LibraryKind,
+    get_engine_by_value,
+)
 from ascii_library.orchestration.pipes.databricks import PipesDatabricksEnhancedClient
 from ascii_library.orchestration.pipes.emr import PipesEmrEnhancedClient
 from ascii_library.orchestration.pipes.instance_config import CloudInstanceConfig
@@ -38,7 +44,8 @@ def get_libs_dict(
                 )
                 libs_dict.append({lib.kind.value: {"package": package_str}})
             elif lib.kind == LibraryKind.Wheel:
-                libs_dict.append({lib.kind.value: lib.name_id})
+                lib_name = f"s3://{pipeline_bucket}/{lib.name_id}"
+                libs_dict.append({lib.kind.value: lib_name})
 
     return libs_dict
 
@@ -63,6 +70,28 @@ def generate_uploaded_script_paths(
     return new_path
 
 
+def get_engine_from_config(config, spark_pipes_client):
+    if "config" in config.keys():
+        if (
+            "override_default_engine" in config["config"].keys()
+            and config["config"]["override_default_engine"]
+        ):
+            override_engine = get_engine_by_value(
+                config["config"]["override_default_engine"]
+            )
+            return spark_pipes_client.get_spark_pipes_client(
+                override_engine
+            ), override_engine
+        else:
+            return spark_pipes_client.get_spark_pipes_client(
+                spark_pipes_client.engine
+            ), spark_pipes_client.engine
+    else:
+        return spark_pipes_client.get_spark_pipes_client(
+            spark_pipes_client.engine
+        ), spark_pipes_client.engine
+
+
 def spark_pipes_asset_factory(  # noqa: C901
     name: str,
     key_prefix: Sequence[str],
@@ -79,7 +108,6 @@ def spark_pipes_asset_factory(  # noqa: C901
     emr_additional_libraries: Optional[List[LibraryConfig]] = None,
     dbr_additional_libraries: Optional[List[LibraryConfig]] = None,
     emr_job_config: Optional[dict] = None,
-    override_default_engine: Optional[Engine] = None,
     fleet_filters: Optional[CloudInstanceConfig] = None,
     # TODO: in the future support IO manager perhaps for python reading directly from S3 io_manager_key:Optional[str]: None
     # but maybe we intend to keep the offline sync process
@@ -91,16 +119,8 @@ def spark_pipes_asset_factory(  # noqa: C901
     Automatically configure the right pipes clients.
     In the case of Databricks: Ensure dependencies and scripts are present and ready to be executed - automatically build the dependent libraries and upload these to DBFS.
     """
-    client: Union[
-        PipesSubprocessClient,
-        PipesDatabricksEnhancedClient,
-        PipesEmrEnhancedClient,
-    ] = spark_pipes_client.get_spark_pipes_client(override_default_engine)
-    if override_default_engine is not None:
-        engine_to_use = override_default_engine
-    else:
-        engine_to_use = spark_pipes_client.engine
 
+    engine_to_use = spark_pipes_client.engine
     # TODO: auto upload is a convenience feature for now in the future this should be a CI pipeline step with a defined version - this task should only be executed once on ci build and not per each task
     if cfg is None:
 
@@ -116,7 +136,12 @@ def spark_pipes_asset_factory(  # noqa: C901
             context: AssetExecutionContext,
         ) -> MaterializeResult:
             client_params = handle_shared_parameters(context, {})
-            return handle_pipeline_modes(context, client_params)  # type: ignore
+            client = spark_pipes_client.get_spark_pipes_client(
+                spark_pipes_client.engine
+            )
+            return handle_pipeline_modes(
+                context, client_params, client, client, engine_to_use
+            )  # type: ignore
 
     else:
 
@@ -133,19 +158,35 @@ def spark_pipes_asset_factory(  # noqa: C901
             config: cfg,  # type: ignore
         ) -> MaterializeResult:
             client_params = handle_shared_parameters(context, config)
-            return handle_pipeline_modes(context, client_params)  # type: ignore
+            client, real_engine = get_engine_from_config(
+                client_params, spark_pipes_client
+            )
+            # TODO this produces a potential race condition?
+            os.environ["SPARK_PIPES_ENGINE"] = real_engine.value
+            return handle_pipeline_modes(context, client_params, client, real_engine)  # type: ignore
 
-    def handle_pipeline_modes(context: AssetExecutionContext, client_params):
-        if engine_to_use == Engine.Local:
-            return handle_local(client_params, context)  # type: ignore
-        elif engine_to_use == Engine.Databricks:
-            return handle_databricks(client_params, context)  # type: ignore
-        elif engine_to_use == Engine.EMR:
-            return handle_emr(client_params, context, fleet_filters)  # type: ignore
+    def handle_pipeline_modes(
+        context: AssetExecutionContext,
+        client_params,
+        client: Union[
+            PipesSubprocessClient,
+            PipesDatabricksEnhancedClient,
+            PipesEmrEnhancedClient,
+        ],
+        real_engine,
+    ):
+        if real_engine == Engine.Local:
+            return handle_local(client_params, context, client)  # type: ignore
+        elif real_engine == Engine.Databricks:
+            return handle_databricks(client_params, context, client)  # type: ignore
+        elif real_engine == Engine.EMR:
+            return handle_emr(client_params, context, fleet_filters, client)  # type: ignore
         else:
-            raise ValueError(f"Unsupported engine mode: {engine_to_use.value}")
+            raise ValueError(f"Unsupported engine mode: {real_engine.value}")
 
-    def handle_emr(client_params, context, fleet_filters):
+    def handle_emr(
+        client_params, context, fleet_filters, client: PipesEmrEnhancedClient
+    ):
         s3_script_path = generate_uploaded_script_paths(
             local_input_path=external_script_file, prefix="external_pipes"
         )
@@ -157,6 +198,7 @@ def spark_pipes_asset_factory(  # noqa: C901
                 "Args": ["spark-submit", f"s3://{pipeline_bucket}/{s3_script_path}"],
             },
         }
+
         emr_job_config["Name"] = client_params["job_name"]
         if emr_additional_libraries is not None:
             engine_specific_libs = libraries_config.copy()
@@ -167,10 +209,7 @@ def spark_pipes_asset_factory(  # noqa: C901
             "config" in client_params.keys()
             and "spot_bid_price_percent" in client_params["config"].keys()
         ):
-            if (
-                fleet_filters is not None
-                and client_params["config"]["spot_bid_price_percent"] is not None
-            ):
+            if fleet_filters is not None:
                 fleet_filters = update_spot_bid_price_percent(
                     fleet_filters, client_params["config"]["spot_bid_price_percent"]
                 )
@@ -187,7 +226,9 @@ def spark_pipes_asset_factory(  # noqa: C901
             fleet_config=fleet_filters,
         ).get_materialize_result()
 
-    def handle_databricks(client_params, context):
+    def handle_databricks(
+        client_params, context, client: PipesDatabricksEnhancedClient
+    ):
         # we are using databricks engine
         script_file_path_after_upload = generate_uploaded_script_paths(
             external_script_file, prefix="dbfs:/external_pipes"
@@ -227,7 +268,7 @@ def spark_pipes_asset_factory(  # noqa: C901
             dbfs_path=script_file_path_after_upload,
         ).get_materialize_result()
 
-    def handle_local(client_params, context):
+    def handle_local(client_params, context, client: PipesSubprocessClient):
         cmd = [shutil.which("python"), external_script_file]
         client_params["local_spark_config"] = local_spark_config
         return client.run(  # type: ignore
@@ -254,3 +295,13 @@ def spark_pipes_asset_factory(  # noqa: C901
         return client_params
 
     return inner_spark_pipes_asset
+
+
+class BaseConfig(Config):
+    spot_bid_price_percent: Optional[int] = Field(
+        default=85, description="percentage of instance to pay", gt=1, le=100
+    )
+    override_default_engine: Optional[str] = Field(
+        default=None,
+        description="Type of engine to use, valid options are 'pyspark', 'emr', 'databricks'",
+    )

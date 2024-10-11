@@ -102,4 +102,4 @@ timeoutDuration = 60
 weightedCapacity = (
     4  # this should be a number greater than 1 and should match the instance vcore
 )
-releaseLabel = "emr-7.0.0"
+releaseLabel = "emr-7.3.0"

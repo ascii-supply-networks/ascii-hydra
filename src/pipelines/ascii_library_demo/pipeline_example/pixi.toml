@@ -26,9 +26,9 @@ pyspark = "~=3.5.1"
 openjdk = "~=17.0.11"
 fsspec = ">=2024.6.1"
 s3fs = ">=2024.6.1"
-dagster = "~=1.8.4"
-dagster-webserver = "~=1.8.4"
-dagster-pipes = "~=1.8.4"
+dagster = "~=1.8.10"
+dagster-webserver = "~=1.8.10"
+dagster-pipes = "~=1.8.10"
 
 [feature.example.pypi-dependencies]
 tenacity = ">=8.5.0,<10"

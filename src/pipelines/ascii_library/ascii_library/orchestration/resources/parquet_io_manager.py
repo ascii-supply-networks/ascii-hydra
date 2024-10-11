@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Mapping, Optional, Union
+from typing import Any, Dict, Mapping, Optional, Union
 
 import pandas as pd
 from dagster import (
@@ -133,7 +133,7 @@ class S3PartitionedParquetIOManager(PartitionedParquetIOManager):  # type: ignor
         # cleanup: use S3 with short retention period
         # figure out how to generalize. Review also: https://docs.lakefs.io/
         # they will need to provide a cleanup hook
-        so = {
+        so: Dict[str, Any] = {
             "key": self.access_key_id,
             "secret": self.access_key_secret,
         }

@@ -1,10 +1,7 @@
-import random
-import string
 from io import BytesIO, StringIO
 from typing import Any, Dict, List, Optional, Tuple
 
 from dagster import get_dagster_logger
-from dagster._annotations import experimental
 from dagster._core.definitions.resource_annotation import ResourceParam
 from dagster._core.errors import DagsterExecutionInterruptedError
 from dagster._core.execution.context.compute import OpExecutionContext  # type: ignore
@@ -14,14 +11,11 @@ from dagster._core.pipes.client import (
     PipesMessageReader,
 )
 from dagster._core.pipes.utils import open_pipes_session
+from dagster_aws.pipes import PipesS3ContextInjector, PipesS3MessageReader
 from dagster_pipes import PipesExtras
 
 from ascii_library.orchestration.pipes import LibraryConfig, LibraryKind
 from ascii_library.orchestration.pipes.cloud_client import _PipesBaseCloudClient
-from ascii_library.orchestration.pipes.cloud_context_s3 import PipesS3ContextInjector
-from ascii_library.orchestration.pipes.cloud_reader_writer_s3 import (
-    PipesS3MessageReader,
-)
 from ascii_library.orchestration.pipes.instance_config import CloudInstanceConfig
 from ascii_library.orchestration.pipes.utils import (
     library_from_dbfs_paths,
@@ -34,7 +28,6 @@ from ascii_library.orchestration.resources.utils import (
 )
 
 
-@experimental
 class _PipesEmrClient(_PipesBaseCloudClient):
     """Pipes client for EMR.
 
@@ -63,22 +56,17 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         )
         self._price_client = price_client
         self._emr_client = emr_client
-        get_dagster_logger().debug(
-            f"context_injector: bucket={bucket}, s3_client={s3_client}, emr_client={emr_client}"
-        )
         self._s3_client = s3_client
         # self._message_reader = message_reader or PipesEMRLogMessageReader(
         #    s3_client=s3_client,
         #    emr_client=emr_client,
         #    check_cluster_every=check_cluster_every,
         # )
-        key_prefix = "".join(random.choices(string.ascii_letters, k=30))
-        self._key_prefix = key_prefix
         self._context_injector = context_injector or PipesS3ContextInjector(
-            bucket=bucket, client=s3_client, key_prefix=key_prefix
+            bucket=bucket, client=s3_client
         )
         self._message_reader = message_reader or PipesS3MessageReader(
-            bucket=bucket, key_prefix=key_prefix, client=s3_client
+            bucket=bucket, client=s3_client
         )
 
     def create_bootstrap_script(
@@ -197,16 +185,26 @@ class _PipesEmrClient(_PipesBaseCloudClient):
 
     def submit_emr_job(
         self,
+        bootstrap_env,
         emr_job_config: dict,
         step_config,
-        bucket: str,
         extras: PipesExtras,
     ) -> str:
-        emr_job_config = self.modify_env_var(
-            cluster_config=emr_job_config, key="bucket", value=bucket
+        get_dagster_logger().debug(
+            f'DAGSTER_PIPES_CONTEXT: {bootstrap_env["DAGSTER_PIPES_CONTEXT"]}'
+        )
+        get_dagster_logger().debug(
+            f'DAGSTER_PIPES_MESSAGES: {bootstrap_env["DAGSTER_PIPES_MESSAGES"]}'
         )
         emr_job_config = self.modify_env_var(
-            cluster_config=emr_job_config, key="key", value=self._key_prefix
+            cluster_config=emr_job_config,
+            key="DAGSTER_PIPES_CONTEXT",
+            value=bootstrap_env["DAGSTER_PIPES_CONTEXT"],
+        )
+        emr_job_config = self.modify_env_var(
+            cluster_config=emr_job_config,
+            key="DAGSTER_PIPES_MESSAGES",
+            value=bootstrap_env["DAGSTER_PIPES_MESSAGES"],
         )
 
         job_flow = self._emr_client.run_job_flow(**emr_job_config)
@@ -260,19 +258,19 @@ class _PipesEmrClient(_PipesBaseCloudClient):
 
         if extras is None:
             raise ValueError("Extras cannot be None.")
-
         with open_pipes_session(
             context=context,
             message_reader=self._message_reader,
             context_injector=self._context_injector,
             extras=extras,
         ) as session:
+            bootstrap_env = session.get_bootstrap_env_vars()
             emr_job_config = extras.get("emr_job_config")  # type: ignore
             try:
                 cluster_id = self.submit_emr_job(
+                    bootstrap_env=bootstrap_env,
                     emr_job_config=emr_job_config,
                     step_config=step_config,
-                    bucket=bucket,
                     extras=extras,
                 )
                 self._poll_till_success(cluster_id=cluster_id)

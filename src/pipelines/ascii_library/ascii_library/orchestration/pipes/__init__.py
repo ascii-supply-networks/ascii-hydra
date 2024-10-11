@@ -27,6 +27,13 @@ class Engine(Enum):
     EMR = "emr"
 
 
+def get_engine_by_value(value: str) -> Engine:
+    for engine in Engine:
+        if engine.value == value:
+            return engine
+    raise ValueError(f"No matching Engine for value: {value}")
+
+
 class ExecutionMode(Enum):
     Full = "full"
     SmallDevSampleS3 = "small_dev_sample_s3"

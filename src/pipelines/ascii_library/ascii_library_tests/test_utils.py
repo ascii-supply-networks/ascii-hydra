@@ -207,7 +207,7 @@ def test_configure_spark():
     expected_calls = [
         ("spark.sql.parquet.compression.codec", "gzip"),
         ("spark.sql.files.maxPartitionBytes", 50 * 1024 * 1024),
-        ("spark.databricks.delta.retentionDurationCheck.enabled", "false"),
+        ("spark.databricks.delta.retentionDurationCheck.enabled", "true"),
         ("spark.databricks.delta.vacuum.parallelDelete.enabled", "true"),
         ("spark.sql.sources.partitionOverwriteMode", "dynamic"),
         ("spark.databricks.delta.schema.autoMerge.enabled", "True"),

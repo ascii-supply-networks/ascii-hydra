@@ -109,7 +109,7 @@ class _PipesBaseCloudClient(PipesClient):
                 f"[pipes] EMR cluster id {cluster_id} observed state transition to {state}"
             )
             self.last_observed_state = state
-        if state in ["TERMINATED", "TERMINATED_WITH_ERRORS"]:
+        if state in ["TERMINATED", "TERMINATING", "TERMINATED_WITH_ERRORS"]:
             return self._handle_terminated_state_emr(
                 job_flow=cluster_id, description=description, state=state
             )
@@ -136,6 +136,7 @@ class _PipesBaseCloudClient(PipesClient):
             jobs.RunLifeCycleState.TERMINATED,
             jobs.RunLifeCycleState.SKIPPED,
             jobs.RunLifeCycleState.INTERNAL_ERROR,
+            jobs.RunLifeCycleState.TERMINATING,
         ):
             get_dagster_logger().debug(f"Handling terminated state for run: {run_id}")
             return self._handle_terminated_state_dbr(run=run)
@@ -161,7 +162,11 @@ class _PipesBaseCloudClient(PipesClient):
 
     def _handle_terminated_state_emr(self, job_flow, description, state):
         message = description["Cluster"]["Status"]["StateChangeReason"]["Message"]
-        if "error" in message.lower() or state == "TERMINATED_WITH_ERRORS":
+        if (
+            "error" in message.lower()
+            or "failed" in message.lower()
+            or state == "TERMINATED_WITH_ERRORS"
+        ):
             raise DagsterPipesExecutionError(f"Error running EMR job flow: {job_flow}")
         elif state == "TERMINATING" or state == "TERMINATED":
             return False
@@ -212,13 +217,11 @@ class _PipesBaseCloudClient(PipesClient):
             local_library_path (str): The local file system path to the library.
         """
         bucket = kwargs.get("bucket", pipeline_bucket)
-
         if libraries_to_build_and_upload is not None:
             for library in libraries_to_build_and_upload:
                 path = library_to_cloud_paths(
                     lib_name=library, filesystem=self.filesystem
                 )
-                file_relative_path(__file__, f"../../../../{library}")
                 to_upload = package_library(
                     file_relative_path(__file__, f"../../../../{library}")
                 )[0]
@@ -230,8 +233,16 @@ class _PipesBaseCloudClient(PipesClient):
         try:
             if isinstance(self.main_client, BaseClient):
                 self._upload_file_to_s3(local_file_path, cloud_path, **kwargs)
-            elif isinstance(self.main_client, WorkspaceClient):
+            elif (
+                isinstance(self.main_client, WorkspaceClient)
+                and "py" == local_file_path.split(".")[-1]
+            ):
                 self._upload_file_to_dbfs(local_file_path, cloud_path)
+            elif (
+                isinstance(self.main_client, WorkspaceClient)
+                and "whl" == local_file_path.split(".")[-1]
+            ):
+                self._upload_file_to_s3(local_file_path, cloud_path, **kwargs)
             else:
                 raise TypeError(
                     "main_client must be either EMRClient or WorkspaceClient"

@@ -129,14 +129,7 @@ class SparkScriptPipes(ABC):
             envvar = PipesEnvVarParamsLoader()
         elif engine == Engine.EMR:
             import boto3
-
-            from ascii_library.orchestration.pipes.cloud_context_s3 import (
-                PipesS3ContextLoader,
-                PipesS3EnvVarParamsLoader,
-            )
-            from ascii_library.orchestration.pipes.cloud_reader_writer_s3 import (
-                PipesS3MessageWriter,
-            )
+            from dagster_pipes import PipesS3ContextLoader, PipesS3MessageWriter
 
             # for this to work an instance profile with the right permissions
             # must already be attached to the cluster
@@ -147,7 +140,7 @@ class SparkScriptPipes(ABC):
             )
             loader = PipesS3ContextLoader(client=s3_client)
             writer = PipesS3MessageWriter(client=s3_client)
-            envvar = PipesS3EnvVarParamsLoader()
+            envvar = PipesEnvVarParamsLoader()
         else:
             raise ValueError(f"Unsupported engine mode: {engine}")
         return loader, writer, envvar

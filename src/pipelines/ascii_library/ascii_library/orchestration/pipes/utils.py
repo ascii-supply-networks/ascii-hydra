@@ -13,6 +13,8 @@ def library_to_cloud_paths(lib_name: str, filesystem: str = "dbfs"):
     if filesystem == "dbfs":
         # TODO: potential race condition for parallel runs. fix version number
         return f"{filesystem}:/customlibs/{dagster_deployment}/{lib_name}-0.0.0-py3-none-any.whl"
+    elif filesystem == "without":
+        return f"customlibs/{dagster_deployment}/{lib_name}"
     else:
         # TODO: should it be elif?
         return f"customlibs/{dagster_deployment}/{lib_name}-0.0.0-py3-none-any.whl"
@@ -75,7 +77,7 @@ def configure_spark(  # noqa: C901
     cfgs = [
         ("spark.sql.parquet.compression.codec", compression_codec),
         ("spark.sql.files.maxPartitionBytes", 50 * 1024 * 1024),
-        ("spark.databricks.delta.retentionDurationCheck.enabled", "false"),
+        ("spark.databricks.delta.retentionDurationCheck.enabled", "true"),
         ("spark.databricks.delta.vacuum.parallelDelete.enabled", "true"),
         ("spark.sql.sources.partitionOverwriteMode", "dynamic"),
         ("spark.databricks.delta.schema.autoMerge.enabled", "True"),

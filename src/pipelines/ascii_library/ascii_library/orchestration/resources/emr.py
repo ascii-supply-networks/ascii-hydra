@@ -1,6 +1,7 @@
 from typing import Mapping, Optional, Sequence
 
 from ascii_library.orchestration.pipes.instance_config import CloudInstanceConfig
+from ascii_library.orchestration.resources import emr_constants
 
 from .constants import (
     job_role,
@@ -25,7 +26,7 @@ def get_basic_config(name, s3_log_uri, job_role, service_role):
     return {
         "Name": name,
         "LogUri": s3_log_uri,
-        "ReleaseLabel": "emr-7.0.0",
+        "ReleaseLabel": emr_constants.releaseLabel,
         "Applications": [{"Name": "Spark"}],
         "VisibleToAllUsers": True,
         "JobFlowRole": job_role,
@@ -96,8 +97,6 @@ def get_emr_cluster_config(
             "spark.blacklist.decommissioning.timeout": "300s",
             "spark.yarn.appMasterEnv.SPARK_PIPES_ENGINE": "emr",
             "spark.yarn.maxAppAttempts": "1",
-            "spark.yarn.appMasterEnv.DAGSTER_PIPES_CONTEXT_ENV_VAR": "DAGSTER_PIPES_CONTEXT",
-            "spark.yarn.appMasterEnv.DAGSTER_PIPES_MESSAGES_ENV_VAR": "DAGSTER_PIPES_MESSAGES",
         },
     }
     yarn_settings = {
@@ -117,20 +116,6 @@ def get_emr_cluster_config(
             "Properties": {"delta.enabled": "true"},
         },
         spark_settings,
-        # {
-        #    "Classification": "spark-env",
-        #    "Configurations": [
-        #        {
-        #            "Classification": "export",
-        #            "Properties": {
-        # We need this 3 lines for some reason that goes beyond explanation in forums
-        # "SPARK_PIPES_ENGINE": "emr",
-        # "DAGSTER_PIPES_CONTEXT_ENV_VAR": "DAGSTER_PIPES_CONTEXT",
-        # "DAGSTER_PIPES_MESSAGES_ENV_VAR": "DAGSTER_PIPES_MESSAGES",
-        #            },
-        #        }
-        #    ],
-        # },
         {
             "Classification": "spark",
             "Properties": {"maximizeResourceAllocation": "true"},

@@ -46,7 +46,7 @@ dbr_additional_libraries = [
 
 emr_additional_libraries = [
     LibraryConfig(
-        kind=LibraryKind.Pypi, version=">=2.8.2<2.9", name_id="python-dateutil"
+        kind=LibraryKind.Pypi, version=">=2.8.2,<2.9", name_id="python-dateutil"
     ),
 ]
 

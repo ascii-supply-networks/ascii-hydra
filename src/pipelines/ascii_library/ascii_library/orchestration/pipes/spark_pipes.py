@@ -33,6 +33,8 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
     execution_mode: ExecutionMode
 
     def get_spark_pipes_client(self, override_default_engine):
+        aws_access_key_id = os.environ.get("ASCII_AWS_ACCESS_KEY_ID", "dummy")
+        aws_secret_access_key = os.environ.get("ASCII_AWS_SECRET_ACCESS_KEY", "dummy")
         if override_default_engine is not None:
             engine_to_use = override_default_engine
         else:
@@ -56,24 +58,19 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
             )
             tagging_client = boto3.client(
                 "resourcegroupstaggingapi",
-                aws_access_key_id=os.environ.get("ASCII_AWS_ACCESS_KEY_ID", "dummy"),
-                aws_secret_access_key=os.environ.get(
-                    "ASCII_AWS_SECRET_ACCESS_KEY", "dummy"
-                ),
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
                 region_name="us-east-1",
             )
             return PipesDatabricksEnhancedClient(
-                client=workspace_client, tagging_client=tagging_client
+                client=workspace_client,
+                tagging_client=tagging_client,
             )
         elif engine_to_use == Engine.EMR:
             import boto3
 
             from ascii_library.orchestration.pipes.emr import PipesEmrEnhancedClient
 
-            aws_access_key_id = os.environ.get("ASCII_AWS_ACCESS_KEY_ID", "dummy")
-            aws_secret_access_key = os.environ.get(
-                "ASCII_AWS_SECRET_ACCESS_KEY", "dummy"
-            )
             emrClient = boto3.client(
                 "emr",
                 region_name="us-east-1",
