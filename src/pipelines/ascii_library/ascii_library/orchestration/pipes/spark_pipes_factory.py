@@ -136,12 +136,10 @@ def spark_pipes_asset_factory(  # noqa: C901
             context: AssetExecutionContext,
         ) -> MaterializeResult:
             client_params = handle_shared_parameters(context, {})
-            client = spark_pipes_client.get_spark_pipes_client(
-                spark_pipes_client.engine
+            client, real_engine = get_engine_from_config(
+                client_params, spark_pipes_client
             )
-            return handle_pipeline_modes(
-                context, client_params, client, client, engine_to_use
-            )  # type: ignore
+            return handle_pipeline_modes(context, client_params, client, real_engine)  # type: ignore
 
     else:
 
