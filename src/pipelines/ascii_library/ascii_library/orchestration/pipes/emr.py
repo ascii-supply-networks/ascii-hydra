@@ -1,3 +1,4 @@
+import os
 from io import BytesIO, StringIO
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -205,6 +206,11 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             cluster_config=emr_job_config,
             key="DAGSTER_PIPES_MESSAGES",
             value=bootstrap_env["DAGSTER_PIPES_MESSAGES"],
+        )
+        emr_job_config = self.modify_env_var(
+            cluster_config=emr_job_config,
+            key="ASCII_WANDB",
+            value=os.environ["ASCII_WANDB"],
         )
 
         job_flow = self._emr_client.run_job_flow(**emr_job_config)
