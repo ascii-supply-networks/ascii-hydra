@@ -97,6 +97,7 @@ db_step_launcher_dev = databricks_pyspark_step_launcher.configured(
             "DAGSTER_CLOUD_DEPLOYMENT_NAME": os.getenv(
                 "DAGSTER_CLOUD_DEPLOYMENT_NAME", ""
             ),
+            "ASCII_WANDB": os.getenv("ASCII_WANDB", ""),
         },
         "secrets_to_env_variables": [
             # {"name": "DATABRICKS_HOST", "key": "adls2_key", "scope": "dagster-test"},
