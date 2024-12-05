@@ -73,7 +73,7 @@ db_step_launcher_dev = databricks_pyspark_step_launcher.configured(
                 # {"pypi": {"package": f"dagster {dagster_version}"}},
                 # {"pypi": {"package": f"dagster-pyspark {dagster_library_version}"}},
                 # {"pypi": {"package": f"dagster-databricks {dagster_library_version}"}},
-                {"pypi": {"package": "fastwarc==0.14.5"}},
+                {"pypi": {"package": "fastwarc==0.15.0"}},
                 {"pypi": {"package": "surt==0.3.1"}},
                 {"pypi": {"package": "warcio==1.7.4"}},
             ],
