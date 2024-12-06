@@ -1,7 +1,7 @@
 from typing import Dict, Mapping, Optional, Sequence
 
 from ascii_library.orchestration.pipes.instance_config import CloudInstanceConfig
-from ascii_library.orchestration.resources import emr_constants
+from ascii_library.orchestration.resources import constants, emr_constants
 
 from .constants import (
     job_role,
@@ -43,8 +43,8 @@ def get_emr_cluster_config(
     maximumOnDemandCapacityUnits: int,
     # we do not store anything to HDFS, want to limit core nodes to a minimum
     maximumCoreCapacityUnits: int = 1,
-    s3_log_uri: Optional[str] = None,
-    subnet_id: Optional[str] = None,
+    s3_log_uri: Optional[str] = constants.s3_log_uri,
+    subnet_id: Optional[str] = constants.subnet_id,
     master_security_group: str = master_security_group,
     slave_security_group: str = slave_security_group,
     service_role: str = service_role,
