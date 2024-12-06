@@ -77,12 +77,18 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
                 region_name="us-east-1",
                 aws_access_key_id=aws_access_key_id,
                 aws_secret_access_key=aws_secret_access_key,
+                config=Config(
+                    retries={"max_attempts": 10, "mode": "adaptive"},
+                ),
             )
             s3Client = boto3.client(
                 "s3",
                 region_name="us-east-1",
                 aws_access_key_id=aws_access_key_id,
                 aws_secret_access_key=aws_secret_access_key,
+                config=Config(
+                    retries={"max_attempts": 10, "mode": "adaptive"},
+                ),
             )
             priceClient = boto3.client(
                 "pricing",
