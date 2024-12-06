@@ -1,6 +1,7 @@
 import os
 import warnings
 
+from botocore.config import Config
 from dagster import ConfigurableResource, ExperimentalWarning
 
 from ascii_library.orchestration.pipes import Engine, ExecutionMode
@@ -88,6 +89,9 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
                 region_name="us-east-1",
                 aws_access_key_id=aws_access_key_id,
                 aws_secret_access_key=aws_secret_access_key,
+                config=Config(
+                    retries={"max_attempts": 10, "mode": "adaptive"},
+                ),
             )
             return PipesEmrEnhancedClient(
                 emr_client=emrClient,
