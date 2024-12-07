@@ -104,6 +104,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             package_install += f"{lib.version}"
         get_dagster_logger().debug(f"Installing library: {package_install}")
         content.write(f"sudo pip install '{package_install}' \n")
+        content.write(f"sudo pip3 install '{package_install}' \n")
 
     def handle_wheel(self, bucket, content, lib):
         name_id = library_from_dbfs_paths(lib.name_id)
@@ -111,6 +112,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         content.write(f"aws s3 cp s3://{bucket}/{path} /tmp \n")
         get_dagster_logger().debug(f"Installing library: {name_id}")
         content.write(f"sudo pip install /tmp/{name_id}-0.0.0-py3-none-any.whl \n")
+        content.write(f"sudo pip3 install /tmp/{name_id}-0.0.0-py3-none-any.whl \n")
 
     def modify_env_var(self, cluster_config: dict, key: str, value: str):
         configs = cluster_config.get("Configurations", [])
