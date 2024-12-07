@@ -97,7 +97,7 @@ volumeType = VolumeType.generalPurpose2
 volumesPerInstance = 1
 ebsOptimized = True
 percentageOfOnDemandPrice = 70.0
-allocationStrategy = AllocationStrategy.price
+allocationStrategy = AllocationStrategy.priceCapacity
 timeoutDuration = 60
 weightedCapacity = (
     4  # this should be a number greater than 1 and should match the instance vcore
