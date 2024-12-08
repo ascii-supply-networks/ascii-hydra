@@ -128,6 +128,13 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             i += 1
         return cluster_config
 
+    def extract_filename_without_extension(self, path: str):
+        # Extract the base name of the file
+        base_name = os.path.basename(path)
+        # Remove the extension
+        name_without_extension = os.path.splitext(base_name)[0]
+        return name_without_extension
+
     def prepare_emr_job(
         self,
         local_file_path: str,
@@ -146,7 +153,10 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             self._ensure_library_on_cloud(
                 libraries_to_build_and_upload=libraries_to_build_and_upload
             )
-            destination = self.create_bootstrap_script(libraries=libraries)
+            output_file_name = f"{self.extract_filename_without_extension(local_file_path)}_bootstrap.sh"
+            destination = self.create_bootstrap_script(
+                output_file=output_file_name, libraries=libraries
+            )
             emr_job_config = dict(emr_job_config)
             emr_job_config["BootstrapActions"] = [
                 {
