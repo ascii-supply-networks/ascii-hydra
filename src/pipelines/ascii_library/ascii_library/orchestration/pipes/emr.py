@@ -190,10 +190,13 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                 emr_job_config["ManagedScalingPolicy"]["ComputeLimits"]["UnitType"] = (
                     "InstanceFleetUnits"
                 )
+                emr_job_config["Instances"]["Ec2SubnetId"] = ""
             else:
                 raise ValueError(
                     "No instance groups or fleets defined, and fleet_config is None."
                 )
+        elif emr_job_config["Instances"].get("InstanceGroups") is not None:
+            emr_job_config["Instances"]["Ec2SubnetIds"] = []
         return emr_job_config
 
     def submit_emr_job(
