@@ -44,7 +44,7 @@ def get_emr_cluster_config(
     # we do not store anything to HDFS, want to limit core nodes to a minimum
     maximumCoreCapacityUnits: int = 1,
     s3_log_uri: Optional[str] = constants.s3_log_uri,
-    subnet_id: Optional[str] = constants.subnet_id,
+    subnet_id: Optional[str] = emr_constants.Subnets.usEast1b.value,
     master_security_group: str = master_security_group,
     slave_security_group: str = slave_security_group,
     service_role: str = service_role,
@@ -137,9 +137,14 @@ def get_emr_cluster_config(
         "TerminationProtected": False,
         #'HadoopVersion': 'string',
         "Ec2SubnetId": subnet_id,
-        #'Ec2SubnetIds': [
-        #    'string',
-        # ],
+        "Ec2SubnetIds": [
+            emr_constants.Subnets.usEast1a.value,
+            emr_constants.Subnets.usEast1b.value,
+            emr_constants.Subnets.usEast1c.value,
+            emr_constants.Subnets.usEast1d.value,
+            emr_constants.Subnets.usEast1e.value,
+            emr_constants.Subnets.usEast1f.value,
+        ],
         "EmrManagedMasterSecurityGroup": master_security_group,
         "EmrManagedSlaveSecurityGroup": slave_security_group,
         #'ServiceAccessSecurityGroup': 'string',
