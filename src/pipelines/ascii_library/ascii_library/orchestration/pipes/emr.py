@@ -207,10 +207,10 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         extras: PipesExtras,
     ) -> str:
         get_dagster_logger().debug(
-            f'DAGSTER_PIPES_CONTEXT: {bootstrap_env["DAGSTER_PIPES_CONTEXT"]}'
+            f"DAGSTER_PIPES_CONTEXT: {bootstrap_env['DAGSTER_PIPES_CONTEXT']}"
         )
         get_dagster_logger().debug(
-            f'DAGSTER_PIPES_MESSAGES: {bootstrap_env["DAGSTER_PIPES_MESSAGES"]}'
+            f"DAGSTER_PIPES_MESSAGES: {bootstrap_env['DAGSTER_PIPES_MESSAGES']}"
         )
         emr_job_config = self.modify_env_var(
             cluster_config=emr_job_config,
