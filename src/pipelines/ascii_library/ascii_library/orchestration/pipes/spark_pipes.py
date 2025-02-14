@@ -1,12 +1,14 @@
+# ruff: noqa: E402
+# import warnings
+# import dagster as dg
+# warnings.filterwarnings("ignore", category=dg.ExperimentalWarning)
+
 import os
-import warnings
 
 from botocore.config import Config
-from dagster import ConfigurableResource, ExperimentalWarning
+from dagster import ConfigurableResource
 
 from ascii_library.orchestration.pipes import Engine, ExecutionMode
-
-warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
 
 class SparkPipesResource(ConfigurableResource):  # type: ignore
