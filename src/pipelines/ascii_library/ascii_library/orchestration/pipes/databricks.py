@@ -1,9 +1,11 @@
+import os
 import sys
 import time
 from typing import Any, Dict, List, Mapping, Optional
 
 import boto3
 import dagster._check as check
+from dagster import get_dagster_logger
 from dagster._core.definitions.resource_annotation import ResourceParam
 from dagster._core.errors import DagsterExecutionInterruptedError
 from dagster._core.execution.context.compute import OpExecutionContext  # type: ignore
@@ -193,10 +195,16 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
             message_reader=message_reader,
         ) as pipes_session:
             submit_task_dict = task.as_dict()
+            ascii_wandb_value = {"ASCII_WANDB": os.environ.get("ASCII_WANDB", "")}
+            if not ascii_wandb_value:
+                get_dagster_logger().warning(
+                    "Environment variable 'ASCII_WANDB' is not set; defaulting to empty value."
+                )
             submit_task_dict["new_cluster"]["spark_env_vars"] = {
                 **submit_task_dict["new_cluster"].get("spark_env_vars", {}),
                 **(env or {}),
                 **pipes_session.get_bootstrap_env_vars(),
+                **ascii_wandb_value,
             }
             task = jobs.SubmitTask.from_dict(submit_task_dict)
             run_id = self.client.jobs.submit(

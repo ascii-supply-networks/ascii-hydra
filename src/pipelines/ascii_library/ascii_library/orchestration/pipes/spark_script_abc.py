@@ -36,9 +36,7 @@ class SparkScriptPipes(ABC):
         if execution_mode == ExecutionMode.SmallDevSampleS3:
             return f"s3a://{self.sample_data}/ascii_seeds"
         elif execution_mode == ExecutionMode.SmallDevSampleLocal:
-            return (Path(self.reference_data_path, "ascii_seeds")
-                .resolve()
-                .as_uri())
+            return Path(self.reference_data_path, "ascii_seeds").resolve().as_uri()
         elif execution_mode == ExecutionMode.Full:
             return f"s3a://{self.bucket_seed_nodes}/ascii_seeds"
 
@@ -81,11 +79,22 @@ class SparkScriptPipes(ABC):
             context.log.info(f"Partition key: {partition_key}")
             context.log.info(f"Execution mode: {execution_mode}")
 
-            self.bucket_seed_nodes = os.environ.get("BUCKET_SEED_NODES", "default-seed-nodes")
-            self.bucket_cc_results = os.environ.get("BUCKET_CC_RESULTS", "default-cc-results")
-            self.bucket_cc_dev_results = os.environ.get("BUCKET_CC_DEV_RESULTS", "default-cc-dev-results")
-            self.sample_data = os.environ.get("SAMPLE_DATA_BUCKET", "default-sample-data")
-            self.reference_data_path = os.environ.get("REFERENCE_DATA_PATH", "../../../reference-data/pipeline_sample_data/commoncrawl")
+            self.bucket_seed_nodes = os.environ.get(
+                "BUCKET_SEED_NODES", "default-seed-nodes"
+            )
+            self.bucket_cc_results = os.environ.get(
+                "BUCKET_CC_RESULTS", "default-cc-results"
+            )
+            self.bucket_cc_dev_results = os.environ.get(
+                "BUCKET_CC_DEV_RESULTS", "default-cc-dev-results"
+            )
+            self.sample_data = os.environ.get(
+                "SAMPLE_DATA_BUCKET", "default-sample-data"
+            )
+            self.reference_data_path = os.environ.get(
+                "REFERENCE_DATA_PATH",
+                "../../../reference-data/pipeline_sample_data/commoncrawl",
+            )
 
             if engine == Engine.Local:
                 local_spark_config = context.get_extra("local_spark_config")

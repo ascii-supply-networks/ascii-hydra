@@ -52,7 +52,9 @@ def dev_spark_config(
             "spark.hadoop.fs.s3a.path.style.access": "true",
             "spark.hadoop.fs.s3a.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem",
             # "spark.hadoop.fs.s3a.endpoint": url,
-            "spark.hadoop.fs.s3a.buffer.dir": os.environ.get("SPARK_DIR", "/data/raid5/data/sparktmp"),
+            "spark.hadoop.fs.s3a.buffer.dir": os.environ.get(
+                "SPARK_DIR", "/data/raid5/data/sparktmp"
+            ),
             "spark.hadoop.fs.s3a.fast.upload.buffer": "bytebuffer",
             "spark.hadoop.fs.s3a.fast.upload.active.blocks": "4",
             # "spark.databricks.delta.schema.autoMerge.enabled": "true",

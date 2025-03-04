@@ -224,7 +224,9 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         )
         ascii_wandb_value = os.environ.get("ASCII_WANDB", "")
         if not ascii_wandb_value:
-            get_dagster_logger().warning("Environment variable 'ASCII_WANDB' is not set; defaulting to empty value.")
+            get_dagster_logger().warning(
+                "Environment variable 'ASCII_WANDB' is not set; defaulting to empty value."
+            )
         emr_job_config = self.modify_env_var(
             cluster_config=emr_job_config,
             key="ASCII_WANDB",
