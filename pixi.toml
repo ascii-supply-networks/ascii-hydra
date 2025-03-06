@@ -1,0 +1,83 @@
+[dependencies]
+python = "~=3.11"
+pip = ">=24.2"
+
+[environments]
+ci = { features = ["ci"], solve-group = "ci" }
+example = { features = ["example"], solve-group = "example" }
+testing = { features = ["ci", "example"], solve-group = "example" }
+
+[feature.ci.dependencies]
+pytest = ">=8.3.3,<9"
+pytest-mock = ">=3.14.0,<4"
+pytest-cov = ">=5.0.0,<6"
+pyright = "~=1.1.388"
+ruff = ">=0.5.7,<1"
+yamllint = ">=1.35.1,<2"
+taplo = ">=0.9.3,<0.10"
+nodejs = ">=20.8.1,<23"
+
+[feature.ci.pypi-dependencies]
+sqlfluff = "~=3.2.0"
+moto = "~=5.0.14"
+
+[feature.example.dependencies]
+grpcio = "*"
+grpcio-tools = "*"
+pyspark = "~=3.5.3"
+openjdk = "~=17.0.11"
+fsspec = ">=2024.9.0"
+s3fs = ">=2024.9.0"
+dagster = ">=1.10.0,<1.11"
+dagster-webserver = ">=1.10.0,<1.11"
+dagster-pipes = ">=1.10.0,<1.11"
+
+[feature.example.pypi-dependencies]
+tenacity = ">=9.0.0,<10"
+dagster-aws = ">=0.26.0,<0.27"
+dagster-pyspark = ">=0.26.0,<0.27"
+dagster-databricks = ">=0.26.0,<0.27"
+
+delta-spark = "~=3.2.1"
+deltalake = ">=0.22.3,<0.23"
+build = "~=1.2.2"
+databricks-sdk = ">=0.8,<0.33"
+ascii_library = { path = "../../ascii_library", editable = true }
+pipeline_example = { path = "./", editable = true }
+
+
+[project]
+name = "ascii-hydra-sample"
+version = "1.0.0"
+description = "Showcase orchestrator money saving spark"
+authors = [
+  "Georg Heiler <georg.heiler@ascii.ac.at>",
+  "Hernan Picatto <hernan.picatto@ascii.ac.at>",
+]
+platforms = ["linux-64", "osx-arm64"]
+channels = ["conda-forge"]
+
+[tasks]
+clean_all_environments = { cmd = "rm -rf .pixi/envs" }
+
+[tasks.lint]
+cmd = "ruff check . && taplo check && pyright"
+description = "Validate formatting and type check python files"
+
+[tasks.test]
+cmd = "pytest --cov --cov-report=term-missing ."
+description = "Unittests"
+
+[feature.example.tasks.start]
+cwd = "./"
+cmd = "dagster dev"
+description = "start dagster webserver UI"
+
+[feature.ci.tasks.fmt]
+cmd = "ruff check --fix . && taplo fmt"
+description = "Format python files"
+env = { RUST_LOG = "warn" }
+
+[tasks.create_environment]
+cmd = "pixi install -e example --locked"
+description = "python pipeline enviornment"
