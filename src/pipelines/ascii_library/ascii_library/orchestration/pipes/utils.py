@@ -25,15 +25,20 @@ def library_from_dbfs_paths(dbfs_path: str):
     return last_part.split("-")[0]
 
 
-def package_library(mylib_path):
+def package_library(mylib_path):  # noqa
     mylib_path = os.path.abspath(mylib_path)
     dist_path = os.path.join(mylib_path, "dist")
+    build_path = os.path.join(mylib_path, "build")
     # Clear the dist directory if it already exists
     if os.path.exists(dist_path):
         for f in glob.glob(os.path.join(dist_path, "*")):
             os.remove(f)
     else:
         os.makedirs(dist_path)
+    if os.path.exists(build_path):
+        for f in glob.glob(os.path.join(build_path, "*")):
+            os.remove(f)
+
     subprocess.check_call(
         ["python", "-m", "build", "--wheel", "--outdir", dist_path], cwd=mylib_path
     )

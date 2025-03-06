@@ -4,7 +4,6 @@ from typing import Any, Dict, List, Mapping, Optional
 
 import boto3
 import dagster._check as check
-from dagster._annotations import experimental
 from dagster._core.definitions.resource_annotation import ResourceParam
 from dagster._core.errors import DagsterExecutionInterruptedError
 from dagster._core.execution.context.compute import OpExecutionContext  # type: ignore
@@ -27,7 +26,6 @@ from pydantic import Field
 from ascii_library.orchestration.pipes.cloud_client import _PipesBaseCloudClient
 
 
-@experimental
 class _PipesDatabricksClient(_PipesBaseCloudClient):
     """Pipes client for databricks.
 
