@@ -69,4 +69,6 @@ Execute `make start` and then go to http://localhost:3000 for the dagster UI
 
 ## explanation
 
-See [https://georgheiler.com/2024/06/21/cost-efficient-alternative-to-databricks-lock-in/](https://georgheiler.com/2024/06/21/cost-efficient-alternative-to-databricks-lock-in/).
+See [https://georgheiler.com/post/paas-as-implementation-detail/](https://georgheiler.com/post/paas-as-implementation-detail/) or [Cost-Effective Big Data Orchestration Using Dagster: A Multi-Platform Approach](https://arxiv.org/abs/2408.11635)
+
+For a detail example step by step check `docs/use_assets.md` 

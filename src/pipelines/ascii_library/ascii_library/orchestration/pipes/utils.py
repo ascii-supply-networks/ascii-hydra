@@ -8,7 +8,7 @@ from ascii_library.orchestration.resources.utils import (
 )
 
 
-def library_to_cloud_paths(lib_name: str, filesystem: str = "dbfs"):
+def library_to_cloud_paths(lib_name: str, filesystem: str = "s3"):
     dagster_deployment = get_dagster_deployment_environment()
     if filesystem == "dbfs":
         # TODO: potential race condition for parallel runs. fix version number

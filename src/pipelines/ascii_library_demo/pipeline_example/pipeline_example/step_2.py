@@ -19,17 +19,15 @@ class Step_2(SparkScriptPipes):
         start_time = datetime.now().isoformat()
 
         input_bucket_name = "ascii-supply-chain-research-results"
-        input_key = "word_count/amazon_review_word_count"
-        word_count_df = spark.read.parquet(f"s3a://{input_bucket_name}/{input_key}")
-        avg_word_length_df = word_count_df.withColumn(
-            "word_length", length(word_count_df.word)
-        )
-        avg_length_df = avg_word_length_df.agg(
-            avg("word_length").alias("avg_word_length")
-        )
+        input_key = "random_data/random_data_parquet"
+        df = spark.read.parquet(f"s3a://{input_bucket_name}/{input_key}")
+        df.show(10)
+        df_with_length = df.withColumn("text_length", length(df.random_text))
+        avg_length_df = df_with_length.agg(avg("text_length").alias("avg_text_length"))
         avg_length_df.show()
-        num_distinct_words = word_count_df.select("word").distinct().count()
-        avg_word_length = avg_length_df.collect()[0]["avg_word_length"]
+        num_distinct_texts = df.select("random_text").distinct().count()
+        avg_value = df.agg(avg("value").alias("avg_value")).collect()[0]["avg_value"]
+        avg_text_length = avg_length_df.collect()[0]["avg_text_length"]
 
         end_time = datetime.now().isoformat()
 
@@ -37,8 +35,9 @@ class Step_2(SparkScriptPipes):
             metadata={
                 "time_start": start_time,
                 "time_end": end_time,
-                "num_distinct_words": num_distinct_words,
-                "avg_word_length": avg_word_length,
+                "num_distinct_texts": num_distinct_texts,
+                "avg_text_length": avg_text_length,
+                "avg_value": avg_value,
             },
             data_version="1.0",
         )

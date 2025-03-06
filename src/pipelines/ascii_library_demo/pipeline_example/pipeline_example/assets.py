@@ -33,14 +33,16 @@ spot_bid_price_percent = 10
 basic_libs_upload = ["ascii", "ascii_library"]
 basic_libraries = [
     LibraryConfig(
-        kind=LibraryKind.Wheel, name_id=library_to_cloud_paths("ascii_library")
+        kind=LibraryKind.Wheel, name_id=library_to_cloud_paths("ascii_library", "s3")
     ),
-    LibraryConfig(kind=LibraryKind.Wheel, name_id=library_to_cloud_paths("ascii")),
+    LibraryConfig(
+        kind=LibraryKind.Wheel, name_id=library_to_cloud_paths("ascii", "s3")
+    ),
 ]
 
 dbr_additional_libraries = [
     LibraryConfig(
-        kind=LibraryKind.Pypi, version=">=0.8<0.17", name_id="databricks-sdk"
+        kind=LibraryKind.Pypi, version=">=0.8<0.33", name_id="databricks-sdk"
     ),
 ]
 
