@@ -2,7 +2,6 @@ import base64
 import time
 from typing import List, Optional, Union
 
-import dagster._check as check
 from botocore.client import BaseClient
 from botocore.exceptions import (
     ClientError,
@@ -12,16 +11,18 @@ from botocore.exceptions import (
     ReadTimeoutError,
     ResponseStreamingError,
 )
-from dagster import file_relative_path, get_dagster_logger
-from dagster._core.errors import DagsterPipesExecutionError
-from dagster._core.pipes.client import (
+from dagster import (
     PipesClient,
     PipesContextInjector,
     PipesMessageReader,
+    file_relative_path,
+    get_dagster_logger,
 )
+from dagster_shared.check.functions import numeric_param, opt_inst_param
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import DatabricksError
 from databricks.sdk.service import jobs
+from mypy_boto3_resourcegroupstaggingapi import ResourceGroupsTaggingAPIClient
 from tenacity import (
     RetryCallState,
     retry,
@@ -31,6 +32,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from ascii_library.orchestration.pipes.exceptions import CustomPipesException
 from ascii_library.orchestration.resources.emr_constants import pipeline_bucket
 
 from .utils import library_to_cloud_paths, package_library
@@ -62,10 +64,10 @@ class _PipesBaseCloudClient(PipesClient):
         poll_interval_seconds: float = 5,
         **kwargs,
     ):
-        self.poll_interval_seconds = check.numeric_param(
+        self.poll_interval_seconds = numeric_param(
             poll_interval_seconds, "poll_interval_seconds"
         )
-        self.message_reader = check.opt_inst_param(
+        self.message_reader = opt_inst_param(
             message_reader,
             "message_reader",
             PipesMessageReader,
@@ -122,17 +124,19 @@ class _PipesBaseCloudClient(PipesClient):
         after=after_retry,
         retry=retry_if_exception_type((DatabricksError)),
     )
-    def _retrieve_state_dbr(self, run_id):
-        return self.main_client.jobs.get_run(run_id)  # type: ignore
+    def _retrieve_state_dbr(self, run_id) -> jobs.Run:
+        return self.main_client.jobs.get_run(run_id)
 
     def _handle_dbr_polling(self, run_id):
         run = self._retrieve_state_dbr(run_id)
-        if run.state.life_cycle_state != self.last_observed_state:
+        state = run.state
+        assert isinstance(state, jobs.RunState)
+        if state.life_cycle_state != self.last_observed_state:
             get_dagster_logger().debug(
-                f"[pipes] Databricks run {run_id} observed state transition to {run.state.life_cycle_state}"
+                f"[pipes] Databricks run {run_id} observed state transition to {state.life_cycle_state}"
             )
-            self.last_observed_state = run.state.life_cycle_state
-        if run.state.life_cycle_state in (
+            self.last_observed_state = state.life_cycle_state
+        if state.life_cycle_state in (
             jobs.RunLifeCycleState.TERMINATED,
             jobs.RunLifeCycleState.SKIPPED,
             jobs.RunLifeCycleState.INTERNAL_ERROR,
@@ -167,14 +171,18 @@ class _PipesBaseCloudClient(PipesClient):
             or "failed" in message.lower()
             or state == "TERMINATED_WITH_ERRORS"
         ):
-            raise DagsterPipesExecutionError(f"Error running EMR job flow: {job_flow}")
+            raise CustomPipesException(
+                message=f"Error running EMR job flow: {job_flow}"
+            )
         elif state == "TERMINATING" or state == "TERMINATED":
             return False
         else:
             return True
 
     def _handle_terminated_state_dbr(self, run):
-        resources = self._tagging_client.get_resources(
+        client = self._tagging_client
+        assert isinstance(client, ResourceGroupsTaggingAPIClient)
+        resources = client.get_resources(
             TagFilters=[
                 {
                     "Key": "JobId",
@@ -185,11 +193,12 @@ class _PipesBaseCloudClient(PipesClient):
             ]
         )
         resource_arns = [
-            item["ResourceARN"] for item in resources["ResourceTagMappingList"]
+            item["ResourceARN"]  # type: ignore[index]
+            for item in resources["ResourceTagMappingList"]
         ]
         if len(resource_arns) > 0:
             for arn in resource_arns:
-                self._tagging_client.tag_resources(
+                client.tag_resources(
                     ResourceARNList=[arn],
                     Tags={
                         "jobId": str(run.job_id),
@@ -200,8 +209,9 @@ class _PipesBaseCloudClient(PipesClient):
         if run.state.result_state == jobs.RunResultState.SUCCESS:
             return False
         else:
-            raise DagsterPipesExecutionError(
-                f"Error running Databricks job: {run.state.state_message}"
+            state_message = run.state.state_message or "Unknown reason"
+            raise CustomPipesException(
+                message=f"Error running Databricks job: {state_message}"
             )
 
     def _ensure_library_on_cloud(

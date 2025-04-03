@@ -3,29 +3,29 @@ import sys
 import time
 from typing import Any, Dict, List, Mapping, Optional
 
-import boto3
-import dagster._check as check
-from dagster import get_dagster_logger
-from dagster._core.definitions.resource_annotation import ResourceParam
-from dagster._core.errors import DagsterExecutionInterruptedError
-from dagster._core.execution.context.compute import OpExecutionContext  # type: ignore
-from dagster._core.pipes.client import (
-    PipesClientCompletedInvocation,
+from dagster import (
+    OpExecutionContext,
     PipesContextInjector,
     PipesMessageReader,
+    ResourceParam,
+    get_dagster_logger,
+    open_pipes_session,
 )
-from dagster._core.pipes.utils import open_pipes_session
+from dagster._core.pipes.client import PipesClientCompletedInvocation  # type: ignore
 from dagster_databricks import (
     PipesDbfsContextInjector,
     PipesDbfsLogReader,
     PipesDbfsMessageReader,
 )
 from dagster_pipes import PipesExtras
+from dagster_shared.check.functions import bool_param, opt_inst_param
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import jobs
+from mypy_boto3_resourcegroupstaggingapi import ResourceGroupsTaggingAPIClient
 from pydantic import Field
 
 from ascii_library.orchestration.pipes.cloud_client import _PipesBaseCloudClient
+from ascii_library.orchestration.pipes.exceptions import CustomPipesException
 
 
 class _PipesDatabricksClient(_PipesBaseCloudClient):
@@ -53,7 +53,7 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
     def __init__(
         self,
         client: WorkspaceClient,
-        tagging_client: boto3.client,  # type: ignore
+        tagging_client: ResourceGroupsTaggingAPIClient,
         context_injector: Optional[PipesContextInjector] = None,
         message_reader: Optional[PipesMessageReader] = None,
         forward_termination: bool = True,
@@ -65,17 +65,17 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
             tagging_client=tagging_client,
         )
         self.client = client
-        self.context_injector = check.opt_inst_param(
+        self.context_injector = opt_inst_param(
             context_injector,
             "context_injector",
             PipesContextInjector,
         ) or PipesDbfsContextInjector(client=self.client)
-        self.message_reader = check.opt_inst_param(
+        self.message_reader = opt_inst_param(
             message_reader,
             "message_reader",
             PipesMessageReader,
         )
-        self.forward_termination = check.bool_param(
+        self.forward_termination = bool_param(
             forward_termination, "forward_termination"
         )
 
@@ -219,7 +219,7 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
                 self._poll_till_success(
                     run_id=run_id, extras=extras, tagging_client=self._tagging_client
                 )
-            except DagsterExecutionInterruptedError:
+            except CustomPipesException:
                 if self.forward_termination:
                     context.log.info(
                         "[pipes] execution interrupted, canceling Databricks job."

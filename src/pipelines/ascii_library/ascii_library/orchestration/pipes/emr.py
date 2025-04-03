@@ -2,21 +2,21 @@ import os
 from io import BytesIO, StringIO
 from typing import Any, Dict, List, Optional, Tuple
 
-from dagster import get_dagster_logger
-from dagster._core.definitions.resource_annotation import ResourceParam
-from dagster._core.errors import DagsterExecutionInterruptedError
-from dagster._core.execution.context.compute import OpExecutionContext  # type: ignore
-from dagster._core.pipes.client import (
-    PipesClientCompletedInvocation,
+from dagster import (
+    OpExecutionContext,
     PipesContextInjector,
     PipesMessageReader,
+    ResourceParam,
+    get_dagster_logger,
+    open_pipes_session,
 )
-from dagster._core.pipes.utils import open_pipes_session
+from dagster._core.pipes.client import PipesClientCompletedInvocation  # type: ignore
 from dagster_aws.pipes import PipesS3ContextInjector, PipesS3MessageReader
 from dagster_pipes import PipesExtras
 
 from ascii_library.orchestration.pipes import LibraryConfig, LibraryKind
 from ascii_library.orchestration.pipes.cloud_client import _PipesBaseCloudClient
+from ascii_library.orchestration.pipes.exceptions import CustomPipesException
 from ascii_library.orchestration.pipes.instance_config import CloudInstanceConfig
 from ascii_library.orchestration.pipes.utils import (
     library_from_dbfs_paths,
@@ -300,7 +300,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                     extras=extras,
                 )
                 self._poll_till_success(cluster_id=cluster_id)
-            except DagsterExecutionInterruptedError:
+            except CustomPipesException:
                 context.log.info("[pipes] execution interrupted, canceling EMR job.")
                 self._emr_client.terminate_job_flows(JobFlowIds=[cluster_id])
                 raise
