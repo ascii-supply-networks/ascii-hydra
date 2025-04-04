@@ -1,13 +1,11 @@
-import os
-import tarfile
+import random
+import string
 from datetime import datetime
 from typing import Optional
 
-import boto3
 from ascii_library.orchestration.pipes import Engine, ExecutionMode
 from ascii_library.orchestration.pipes.spark_script_abc import SparkScriptPipes
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import explode, split
 from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 
 
@@ -20,51 +18,32 @@ class Step_1(SparkScriptPipes):
         spark: SparkSession,
         engine: Engine,
     ):
-        start_time = datetime.now().isoformat()
-        bucket_name = "fast-ai-nlp"
-        key = "amazon_review_full_csv.tgz"
-        local_data_path = "/tmp/fast-ai-nlp"
-        if not os.path.exists(local_data_path):
-            os.makedirs(local_data_path)
-        if engine == Engine.Local:
-            s3client = boto3.client(
-                "s3",
-                use_ssl=False,
-                aws_access_key_id=os.environ["ASCII_AWS_ACCESS_KEY_ID"],
-                aws_secret_access_key=os.environ["ASCII_AWS_SECRET_ACCESS_KEY"],
+        def generate_random_string(length=10):
+            """Generate a random alphanumeric string of given length."""
+            return "".join(
+                random.choices(string.ascii_letters + string.digits, k=length)
             )
-        else:
-            s3client = boto3.client("s3", use_ssl=False)
 
+        start_time = datetime.now().isoformat()
+        num_rows = 100
+        data = [
+            (i, generate_random_string(15), random.randint(1, 100))
+            for i in range(num_rows)
+        ]
         schema = StructType(
             [
-                StructField("rating", IntegerType(), True),
-                StructField("title", StringType(), True),
-                StructField("review", StringType(), True),
+                StructField("id", IntegerType(), False),
+                StructField("random_text", StringType(), False),
+                StructField("value", IntegerType(), False),
             ]
         )
-
-        local_tar_path = os.path.join(local_data_path, key.split("/")[-1])
-        s3client.download_file(bucket_name, key, local_tar_path)
-        if local_tar_path.endswith("tgz"):
-            with tarfile.open(local_tar_path, "r:gz") as tar:
-                tar.extractall(path=local_data_path)
-
-        csv_file_path = os.path.join(
-            local_data_path, "amazon_review_full_csv", "train.csv"
-        )
-        df = spark.read.csv(csv_file_path, header=False, schema=schema)
-        df.printSchema()
-        words_df = df.withColumn("word", explode(split(df.review, " ")))
-        word_count_df = words_df.groupBy("word").count()
-        word_count_df.show()
+        df = spark.createDataFrame(data, schema)
+        df.show(10)
         output_bucket_name = "ascii-supply-chain-research-results"
-        output_key = "word_count/amazon_review_word_count"
-        word_count_df.write.mode("overwrite").parquet(
-            f"s3a://{output_bucket_name}/{output_key}"
-        )
+        output_key = "random_data/random_data_parquet"
+        output_path = f"s3a://{output_bucket_name}/{output_key}"
+        df.write.mode("overwrite").parquet(output_path)
         end_time = datetime.now().isoformat()
-
         context.report_asset_materialization(
             metadata={
                 "time_start": start_time,

@@ -1,24 +1,24 @@
-from typing import Mapping, Optional, Sequence
+from typing import Dict, Mapping, Optional, Sequence
 
 from ascii_library.orchestration.pipes.instance_config import CloudInstanceConfig
-from ascii_library.orchestration.resources import emr_constants
+from ascii_library.orchestration.resources import constants, emr_constants
 
 from .constants import (
     job_role,
     master_security_group,
-    s3_log_uri,
     service_role,
     slave_security_group,
-    subnet_id,
 )
 
 
-def add_spark_settings(spark_settings, additional_spark_args):
+def add_spark_settings(
+    spark_settings: Dict[str, dict], additional_spark_args: Optional[Dict[str, str]]
+) -> Dict[str, dict]:
     """Helper function to add additional Spark settings."""
     if additional_spark_args:
         for key, value in additional_spark_args.items():
             spark_settings["Properties"][key] = value
-    return spark_settings
+    return spark_settings or {}
 
 
 def get_basic_config(name, s3_log_uri, job_role, service_role):
@@ -43,20 +43,20 @@ def get_emr_cluster_config(
     maximumOnDemandCapacityUnits: int,
     # we do not store anything to HDFS, want to limit core nodes to a minimum
     maximumCoreCapacityUnits: int = 1,
-    s3_log_uri: str = s3_log_uri,
-    subnet_id: str = subnet_id,
+    s3_log_uri: Optional[str] = constants.s3_log_uri,
+    subnet_id: Optional[str] = emr_constants.Subnets.usEast1b.value,
     master_security_group: str = master_security_group,
     slave_security_group: str = slave_security_group,
     service_role: str = service_role,
     job_role: str = job_role,
-    additional_master_security_groups: list = None,
-    additional_slave_security_groups: list = None,
+    additional_master_security_groups: Optional[list[str]] = None,
+    additional_slave_security_groups: Optional[list[str]] = None,
     ssh: str = "emr_key",
     name: Optional[str] = "unnamed",
     group: Optional[Sequence[CloudInstanceConfig]] = None,
     fleet: Optional[Sequence[CloudInstanceConfig]] = None,
     additional_spark_args: Optional[Mapping[str, str]] = None,
-):
+) -> Dict:
     if additional_slave_security_groups is None:
         additional_slave_security_groups = [
             master_security_group,
@@ -75,7 +75,7 @@ def get_emr_cluster_config(
             # "spark.databricks.delta.schema.autoMerge.enabled": "True",
             "spark.databricks.delta.schema.autoMerge.enabledOnWrite": "True",
             "spark.repositories": "https://repo1.maven.org/maven2/",
-            "spark.jars.packages": "io.delta:delta-spark_2.12:3.2.0,org.apache.hadoop:hadoop-aws:3.3.4,org.apache.spark:spark-hadoop-cloud_2.12:3.5.0",
+            "spark.jars.packages": "io.delta:delta-spark_2.12:3.2.0,org.apache.hadoop:hadoop-aws:3.3.4,org.apache.spark:spark-hadoop-cloud_2.12:3.5.0,com.johnsnowlabs.nlp:spark-nlp_2.12:5.3.3",
             "spark.hadoop.fs.s3a.s3guard.ddb.region": "us-east-1",
             "spark.submit.deployMode": "cluster",
             # not needed, these paramters are DIRECTLY managed by the compute provider by selecting an instance type
@@ -107,7 +107,7 @@ def get_emr_cluster_config(
             "yarn.node-labels.am.default-node-label-expression": "CORE",
         },
     }
-    spark_settings = add_spark_settings(spark_settings, additional_spark_args)
+    spark_settings = add_spark_settings(spark_settings, additional_spark_args)  # type: ignore
     basic = get_basic_config(name, s3_log_uri, job_role, service_role)
 
     basic["Configurations"] = [
@@ -137,9 +137,14 @@ def get_emr_cluster_config(
         "TerminationProtected": False,
         #'HadoopVersion': 'string',
         "Ec2SubnetId": subnet_id,
-        #'Ec2SubnetIds': [
-        #    'string',
-        # ],
+        "Ec2SubnetIds": [
+            emr_constants.Subnets.usEast1a.value,
+            emr_constants.Subnets.usEast1b.value,
+            emr_constants.Subnets.usEast1c.value,
+            emr_constants.Subnets.usEast1d.value,
+            emr_constants.Subnets.usEast1e.value,
+            emr_constants.Subnets.usEast1f.value,
+        ],
         "EmrManagedMasterSecurityGroup": master_security_group,
         "EmrManagedSlaveSecurityGroup": slave_security_group,
         #'ServiceAccessSecurityGroup': 'string',

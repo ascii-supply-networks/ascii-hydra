@@ -1,21 +1,22 @@
+import os
 from io import BytesIO, StringIO
 from typing import Any, Dict, List, Optional, Tuple
 
-from dagster import get_dagster_logger
-from dagster._core.definitions.resource_annotation import ResourceParam
-from dagster._core.errors import DagsterExecutionInterruptedError
-from dagster._core.execution.context.compute import OpExecutionContext  # type: ignore
-from dagster._core.pipes.client import (
-    PipesClientCompletedInvocation,
+from dagster import (
+    OpExecutionContext,
     PipesContextInjector,
     PipesMessageReader,
+    ResourceParam,
+    get_dagster_logger,
+    open_pipes_session,
 )
-from dagster._core.pipes.utils import open_pipes_session
+from dagster._core.pipes.client import PipesClientCompletedInvocation  # type: ignore
 from dagster_aws.pipes import PipesS3ContextInjector, PipesS3MessageReader
 from dagster_pipes import PipesExtras
 
 from ascii_library.orchestration.pipes import LibraryConfig, LibraryKind
 from ascii_library.orchestration.pipes.cloud_client import _PipesBaseCloudClient
+from ascii_library.orchestration.pipes.exceptions import CustomPipesException
 from ascii_library.orchestration.pipes.instance_config import CloudInstanceConfig
 from ascii_library.orchestration.pipes.utils import (
     library_from_dbfs_paths,
@@ -103,6 +104,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             package_install += f"{lib.version}"
         get_dagster_logger().debug(f"Installing library: {package_install}")
         content.write(f"sudo pip install '{package_install}' \n")
+        content.write(f"sudo pip3 install '{package_install}' \n")
 
     def handle_wheel(self, bucket, content, lib):
         name_id = library_from_dbfs_paths(lib.name_id)
@@ -110,6 +112,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         content.write(f"aws s3 cp s3://{bucket}/{path} /tmp \n")
         get_dagster_logger().debug(f"Installing library: {name_id}")
         content.write(f"sudo pip install /tmp/{name_id}-0.0.0-py3-none-any.whl \n")
+        content.write(f"sudo pip3 install /tmp/{name_id}-0.0.0-py3-none-any.whl \n")
 
     def modify_env_var(self, cluster_config: dict, key: str, value: str):
         configs = cluster_config.get("Configurations", [])
@@ -124,6 +127,13 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                 cluster_config["Configurations"][i]["Properties"] = props
             i += 1
         return cluster_config
+
+    def extract_filename_without_extension(self, path: str):
+        # Extract the base name of the file
+        base_name = os.path.basename(path)
+        # Remove the extension
+        name_without_extension = os.path.splitext(base_name)[0]
+        return name_without_extension
 
     def prepare_emr_job(
         self,
@@ -143,7 +153,10 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             self._ensure_library_on_cloud(
                 libraries_to_build_and_upload=libraries_to_build_and_upload
             )
-            destination = self.create_bootstrap_script(libraries=libraries)
+            output_file_name = f"{self.extract_filename_without_extension(local_file_path)}_bootstrap.sh"
+            destination = self.create_bootstrap_script(
+                output_file=output_file_name, libraries=libraries
+            )
             emr_job_config = dict(emr_job_config)
             emr_job_config["BootstrapActions"] = [
                 {
@@ -177,10 +190,13 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                 emr_job_config["ManagedScalingPolicy"]["ComputeLimits"]["UnitType"] = (
                     "InstanceFleetUnits"
                 )
+                emr_job_config["Instances"]["Ec2SubnetId"] = ""
             else:
                 raise ValueError(
                     "No instance groups or fleets defined, and fleet_config is None."
                 )
+        elif emr_job_config["Instances"].get("InstanceGroups") is not None:
+            emr_job_config["Instances"]["Ec2SubnetIds"] = []
         return emr_job_config
 
     def submit_emr_job(
@@ -191,10 +207,10 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         extras: PipesExtras,
     ) -> str:
         get_dagster_logger().debug(
-            f'DAGSTER_PIPES_CONTEXT: {bootstrap_env["DAGSTER_PIPES_CONTEXT"]}'
+            f"DAGSTER_PIPES_CONTEXT: {bootstrap_env['DAGSTER_PIPES_CONTEXT']}"
         )
         get_dagster_logger().debug(
-            f'DAGSTER_PIPES_MESSAGES: {bootstrap_env["DAGSTER_PIPES_MESSAGES"]}'
+            f"DAGSTER_PIPES_MESSAGES: {bootstrap_env['DAGSTER_PIPES_MESSAGES']}"
         )
         emr_job_config = self.modify_env_var(
             cluster_config=emr_job_config,
@@ -205,6 +221,16 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             cluster_config=emr_job_config,
             key="DAGSTER_PIPES_MESSAGES",
             value=bootstrap_env["DAGSTER_PIPES_MESSAGES"],
+        )
+        ascii_wandb_value = os.environ.get("ASCII_WANDB", "")
+        if not ascii_wandb_value:
+            get_dagster_logger().warning(
+                "Environment variable 'ASCII_WANDB' is not set; defaulting to empty value."
+            )
+        emr_job_config = self.modify_env_var(
+            cluster_config=emr_job_config,
+            key="ASCII_WANDB",
+            value=ascii_wandb_value,
         )
 
         job_flow = self._emr_client.run_job_flow(**emr_job_config)
@@ -274,7 +300,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                     extras=extras,
                 )
                 self._poll_till_success(cluster_id=cluster_id)
-            except DagsterExecutionInterruptedError:
+            except CustomPipesException:
                 context.log.info("[pipes] execution interrupted, canceling EMR job.")
                 self._emr_client.terminate_job_flows(JobFlowIds=[cluster_id])
                 raise

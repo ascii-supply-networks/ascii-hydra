@@ -2,6 +2,8 @@ import json
 import re
 from typing import Any, Dict, List, Optional, Sequence
 
+from dagster import get_dagster_logger
+
 from ascii_library.orchestration.resources import emr_constants
 
 
@@ -49,6 +51,11 @@ class CloudInstanceConfig:
         self.storageGB = kwargs.get("StorageGB")
         self.noEBS = kwargs.get("NoEBS", False)
         self.filters = kwargs.get("Filters")
+        self.maximumCoreCapacityUnits = kwargs.get("MaximumCoreCapacityUnits", 10)
+        self.maximumOnDemandCapacityUnits = kwargs.get(
+            "MaximumOnDemandCapacityUnits", 10
+        )
+        self.maximumCapacityUnits = kwargs.get("MaximumCapacityUnits", 100)
 
     def __repr__(self):
         return (
@@ -168,9 +175,9 @@ class CloudInstanceConfig:
     def _base_config(self):
         return {
             "InstanceCount": self.instanceCount,
-            "InstanceRole": self.instanceRole.value,
+            "InstanceRole": self.instanceRole.value,  # type: ignore
             "InstanceType": self.instanceType,
-            "Market": self.market.value,
+            "Market": self.market.value,  # type: ignore
             "Name": self.name,
         }
 
@@ -179,8 +186,8 @@ class CloudInstanceConfig:
             config["BidPrice"] = self.bidPrice
 
     def _add_custom_ami_id(self, config, index: int = 0):
-        if self.customAmiId[index] is not None:
-            config["CustomAmiId"] = self.customAmiId[index]
+        if self.customAmiId[index] is not None:  # type: ignore
+            config["CustomAmiId"] = self.customAmiId[index]  # type: ignore
 
     def _add_ebs_configuration(self, config):
         # if self._is_ebs_configuration_valid():
@@ -218,15 +225,15 @@ class CloudInstanceConfig:
         temp = {
             "EbsConfiguration": {
                 "EbsBlockDeviceConfigs": ebsBlockDeviceConfigs[0],
-                "EbsOptimized": self.ebsOptimized[0],
+                "EbsOptimized": self.ebsOptimized[0],  # type: ignore
             },
-            "InstanceType": self.instanceType[0],
-            "WeightedCapacity": self.weightedCapacity[0],
+            "InstanceType": self.instanceType[0],  # type: ignore
+            "WeightedCapacity": self.weightedCapacity[0],  # type: ignore
         }
         if self.percentageOfOnDemandPrice is not None:
             temp["BidPriceAsPercentageOfOnDemandPrice"] = self.percentageOfOnDemandPrice
-        if self.bidPrice[0] is not None:
-            temp["BidPrice"] = self.bidPrice[0]
+        if self.bidPrice[0] is not None:  # type: ignore
+            temp["BidPrice"] = self.bidPrice[0]  # type: ignore
         instanceTypeConfigs.append(temp)
         return instanceTypeConfigs
 
@@ -234,17 +241,15 @@ class CloudInstanceConfig:
         launchSpecifications = {}
         if self.reservationPreference is not None:
             launchSpecifications["OnDemandSpecification"] = {
-                "AllocationStrategy": emr_constants.AllocationStrategy.price.value,  # it's literally the only valid value, that's why it's hardcoded
-                "CapacityReservationOptions": {
-                    "CapacityReservationPreference": self.reservationPreference.value
-                },
+                "AllocationStrategy": "lowest-price",  # it's literally the only valid value, that's why it's hardcoded
+                "CapacityReservationOptions": {"CapacityReservationPreference": "open"},
             }
-        if self.allocationStrategy is not None:
-            launchSpecifications["SpotSpecification"] = {
-                "AllocationStrategy": self.allocationStrategy.value,
-                "TimeoutAction": self.timeoutAction.value,
-                "TimeoutDurationMinutes": self.timeoutDuration,
-            }
+
+        launchSpecifications["SpotSpecification"] = {
+            "AllocationStrategy": "capacity-optimized",
+            "TimeoutAction": "SWITCH_TO_ON_DEMAND",
+            "TimeoutDurationMinutes": 5,
+        }
         return launchSpecifications
 
     def get_fleet_config(self):
@@ -259,7 +264,8 @@ class CloudInstanceConfig:
         if self.timeoutDuration is not None:
             fleet_config["ResizeSpecifications"] = {
                 "OnDemandResizeSpecification": {
-                    "TimeoutDurationMinutes": self.timeoutDuration
+                    "AllocationStrategy": "lowest-price",
+                    "TimeoutDurationMinutes": self.timeoutDuration,
                 },
                 "SpotResizeSpecification": {
                     "TimeoutDurationMinutes": self.timeoutDuration
@@ -310,7 +316,6 @@ class CloudInstanceConfig:
             VolumesPerInstance=[self.volumesPerInstance],
             EbsOptimized=[self.ebsOptimized],
             PercentageOfOnDemandPrice=self.percentageOfOnDemandPrice,
-            AllocationStrategy=self.allocationStrategy,
             TimeoutAction=self.timeoutAction,
             ReservationPreference=self.reservationPreference,
             TimeoutDuration=self.timeoutDuration,
@@ -366,16 +371,16 @@ class CloudInstanceConfig:
 
     def gen_instance_type_configs(self):
         instanceTypeConfigs = []
-        for i in range(len(self.instanceType)):
+        for i in range(len(self.instanceType)):  # type: ignore
             temp = {
-                "InstanceType": self.instanceType[i],
-                "WeightedCapacity": self.weightedCapacity[i],
+                "InstanceType": self.instanceType[i],  # type: ignore
+                "WeightedCapacity": self.weightedCapacity[i],  # type: ignore
             }
-            if self.ebsOptimized[i] is True:
+            if self.ebsOptimized[i] is True:  # type: ignore
                 ebsBlockDeviceConfigs = self._build_ebs_block_device_config(index=i)
                 ebsConfiguration = {
                     "EbsBlockDeviceConfigs": ebsBlockDeviceConfigs,
-                    "EbsOptimized": self.ebsOptimized[i],
+                    "EbsOptimized": self.ebsOptimized[i],  # type: ignore
                 }
                 temp["EbsConfiguration"] = ebsConfiguration
             if self.percentageOfOnDemandPrice is not None:
@@ -389,15 +394,16 @@ class CloudInstanceConfig:
 
     def get_fleet_programatically(self, emrClient, priceClient):
         filter_values = [
-            self.filters.get("VCPU"),
-            self.filters.get(
-                "WorkerInstanceFamilyId", self.filters.get("InstanceFamilyId")
+            self.filters.get("VCPU"),  # type: ignore
+            self.filters.get(  # type: ignore
+                "WorkerInstanceFamilyId",
+                self.filters.get("InstanceFamilyId"),  # type: ignore
             ),
-            self.filters.get("MemoryGB"),
-            self.filters.get("WorkerPrefix", self.filters.get("Prefix")),
-            self.filters.get("WorkerSuffix", self.filters.get("Suffix")),
+            self.filters.get("MemoryGB"),  # type: ignore
+            self.filters.get("WorkerPrefix", self.filters.get("Prefix")),  # type: ignore
+            self.filters.get("WorkerSuffix", self.filters.get("Suffix")),  # type: ignore
         ]
-        if self.filters.get("StorageGB") is None or all(
+        if self.filters.get("StorageGB") is None or all(  # type: ignore
             value is None for value in filter_values
         ):
             raise
@@ -405,36 +411,40 @@ class CloudInstanceConfig:
         master_candidates = self.filter_instances(
             instances,
             StorageGB=(
-                self.filters.get("StorageGB")
-                if self.filters.get("NoEBS") is True
+                self.filters.get("StorageGB")  # type: ignore
+                if self.filters.get("NoEBS") is True  # type: ignore
                 else None
             ),
-            VCPU=self.filters.get("VCPU"),
-            InstanceFamilyId=self.filters.get("InstanceFamilyId"),
-            MemoryGB=self.filters.get("MemoryGB"),
-            Prefix=self.filters.get("Prefix"),
-            Suffix=self.filters.get("Suffix"),
+            VCPU=self.filters.get("VCPU"),  # type: ignore
+            InstanceFamilyId=self.filters.get("InstanceFamilyId"),  # type: ignore
+            MemoryGB=self.filters.get("MemoryGB"),  # type: ignore
+            Prefix=self.filters.get("Prefix"),  # type: ignore
+            Suffix=self.filters.get("Suffix"),  # type: ignore
         )
         master_candidates = self.get_instance_w_price(
-            price_client=priceClient, instances=master_candidates, n=5
+            price_client=priceClient,
+            instances=master_candidates,  # type: ignore
+            n=5,  # type: ignore
         )
         candidates = self.filter_instances(
             instances,
             StorageGB=(
-                self.filters.get("StorageGB")
-                if self.filters.get("NoEBS") is True
+                self.filters.get("StorageGB")  # type: ignore
+                if self.filters.get("NoEBS") is True  # type: ignore
                 else None
             ),
-            VCPU=self.filters.get("VCPU"),
-            InstanceFamilyId=self.filters.get(
-                "WorkerInstanceFamilyId", self.filters.get("InstanceFamilyId")
+            VCPU=self.filters.get("VCPU"),  # type: ignore
+            InstanceFamilyId=self.filters.get(  # type: ignore
+                "WorkerInstanceFamilyId",
+                self.filters.get("InstanceFamilyId"),  # type: ignore
             ),
-            Prefix=self.filters.get("WorkerPrefix", self.filters.get("Prefix")),
-            Suffix=self.filters.get("WorkerSuffix", self.filters.get("Suffix")),
-            MemoryGB=self.filters.get("MemoryGB"),
+            Prefix=self.filters.get("WorkerPrefix", self.filters.get("Prefix")),  # type: ignore
+            Suffix=self.filters.get("WorkerSuffix", self.filters.get("Suffix")),  # type: ignore
+            MemoryGB=self.filters.get("MemoryGB"),  # type: ignore
         )
         candidates = self.get_instance_w_price(
-            price_client=priceClient, instances=candidates
+            price_client=priceClient,
+            instances=candidates,  # type: ignore
         )
 
         master_config = CloudInstanceConfig(
@@ -454,7 +464,7 @@ class CloudInstanceConfig:
             EbsOptimized=[
                 (
                     item["EbsOptimizedAvailable"]
-                    if item["StorageGB"] < self.filters.get("StorageGB")
+                    if item["StorageGB"] < self.filters.get("StorageGB")  # type: ignore
                     else False
                 )
                 for item in master_candidates
@@ -488,18 +498,17 @@ class CloudInstanceConfig:
             EbsOptimized=[
                 (
                     item["EbsOptimizedAvailable"]
-                    if item["StorageGB"] < self.filters.get("StorageGB")
+                    if item["StorageGB"] < self.filters.get("StorageGB")  # type: ignore
                     else False
                 )
                 for item in candidates[0:5]
             ],
-            TargetOnDemand=self.targetOnDemand,
+            TargetOnDemand=self.maximumCoreCapacityUnits,
             ReservationPreference=self.reservationPreference,
             TimeoutDuration=self.timeoutDuration,
         )
         task_config = CloudInstanceConfig(
             InstanceRole=emr_constants.InstanceRole.task.value,
-            Market=emr_constants.Market.spot.value,
             Name="task",
             InstanceType=[item["Type"] for item in candidates],
             SizeInGB=[self.sizeInGB for _ in range(len(candidates))],
@@ -521,7 +530,7 @@ class CloudInstanceConfig:
             EbsOptimized=[
                 (
                     item["EbsOptimizedAvailable"]
-                    if item["StorageGB"] < self.filters.get("StorageGB")
+                    if item["StorageGB"] < self.filters.get("StorageGB")  # type: ignore
                     else False
                 )
                 for item in candidates
@@ -531,14 +540,16 @@ class CloudInstanceConfig:
             AllocationStrategy=(
                 self.allocationStrategy
                 if self.allocationStrategy is None
-                else emr_constants.allocationStrategy
+                else "lowest-price"
             ),
             TimeoutAction=self.timeoutAction,
             TimeoutDuration=self.timeoutDuration,
-            TargetOnDemand=0,
-            TargetOnSpot=self.targetOnSpot,
+            TargetOnDemand=self.maximumOnDemandCapacityUnits,
+            TargetOnSpot=self.maximumCapacityUnits
+            - self.maximumCoreCapacityUnits
+            - self.maximumOnDemandCapacityUnits,
         )
-
+        get_dagster_logger().info(f"task: {task_config.get_fleet_config()}")
         return [
             master_config.get_fleet_config(),
             core_config.get_fleet_config(),
@@ -576,7 +587,7 @@ class CloudInstanceConfig:
 
         task_config = CloudInstanceConfig(
             InstanceRole=emr_constants.InstanceRole.task,
-            Market=emr_constants.Market.spot,
+            Market=self.market,
             Name="Task Group",
             CustomAmiId=[self.customAmiId],
             InstanceType=self.workerInstanceType,

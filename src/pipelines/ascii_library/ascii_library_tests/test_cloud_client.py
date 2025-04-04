@@ -1,5 +1,6 @@
 import base64
 import os
+import re
 import tempfile
 from unittest.mock import MagicMock, call, create_autospec, mock_open, patch
 
@@ -9,13 +10,15 @@ from ascii_library.orchestration.pipes.cloud_client import (
     _PipesBaseCloudClient,
     after_retry,
 )
+from ascii_library.orchestration.pipes.exceptions import CustomPipesException
 from botocore.exceptions import ClientError, NoCredentialsError
 from dagster import get_dagster_logger
-from dagster._core.errors import DagsterPipesExecutionError
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import DatabricksError
 from databricks.sdk.service import jobs
-from moto import mock_aws  # type: ignore
+from databricks.sdk.service.jobs import RunLifeCycleState, RunResultState, RunState
+from moto import mock_aws
+from mypy_boto3_resourcegroupstaggingapi import ResourceGroupsTaggingAPIClient
 from tenacity import (
     BaseRetrying,
     RetryCallState,
@@ -38,7 +41,7 @@ class NonAbstractPipesCloudClient(_PipesBaseCloudClient):
         retry=retry_if_exception_type(DatabricksError),
     )
     def _retrieve_state_dbr(self, run_id):
-        return self.main_client.jobs.get_run(run_id)  # type: ignore
+        return self.main_client.jobs.get_run(run_id)
 
 
 class MockRetrying(BaseRetrying):
@@ -87,28 +90,30 @@ def mock_s3_client():
 
 
 @pytest.fixture
-def mock_workspace_client():
-    mock = create_autospec(WorkspaceClient)
-    mock.dbfs = MagicMock()
+def mock_dbr_run():
+    mock_run = MagicMock()
+    mock_run.job_id = 123
+    mock_state = create_autospec(RunState, instance=True)
+    mock_state.life_cycle_state = RunLifeCycleState.TERMINATED
+    mock_state.result_state = RunResultState.SUCCESS
+    mock_state.state_message = "Run successful"
+    mock_run.state = mock_state
+    return mock_run
+
+
+@pytest.fixture
+def mock_workspace_client(mock_dbr_run):
+    mock = create_autospec(WorkspaceClient, instance=True)
     mock.jobs = MagicMock()
-    mock.jobs.get_run = MagicMock()
+    mock.jobs.get_run.return_value = mock_dbr_run
+    mock.dbfs = MagicMock()
     return mock
 
 
 @pytest.fixture
 def mock_tagging_client():
-    return MagicMock()
-
-
-@pytest.fixture
-def mock_dbr_run():
-    mock_run = MagicMock()
-    mock_run.job_id = 123
-    mock_run.state = MagicMock()
-    mock_run.state.life_cycle_state = jobs.RunLifeCycleState.TERMINATED
-    mock_run.state.result_state = jobs.RunResultState.SUCCESS
-    mock_run.state.state_message = "Run successful"
-    return mock_run
+    mock = create_autospec(ResourceGroupsTaggingAPIClient, instance=True)
+    return mock
 
 
 @pytest.fixture
@@ -184,8 +189,10 @@ def test_init_with_boto_client(mock_emr_client):
     assert client.poll_interval_seconds == 5
 
 
-def test_init_with_workspace_client(mock_workspace_client):
-    client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+def test_init_with_workspace_client(mock_workspace_client, mock_tagging_client):
+    client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
     assert client.filesystem == "dbfs"
     assert client.poll_interval_seconds == 5
 
@@ -304,11 +311,11 @@ def test_handle_emr_polling_terminated_with_errors_state(
     client = NonAbstractPipesCloudClient(main_client=mock_emr_client)
     client.last_observed_state = "RUNNING"
     with pytest.raises(
-        DagsterPipesExecutionError,
-        match="Error running EMR job flow: example_cluster_id",
-    ):
+        CustomPipesException,
+        match=re.escape("Error running EMR job flow: example_cluster_id"),
+    ) as exc_info:
         client._handle_emr_polling(cluster_id="example_cluster_id")
-    assert client.last_observed_state == "TERMINATED_WITH_ERRORS"
+    assert "Error running EMR job flow: example_cluster_id" in str(exc_info.value)
     mock_logger.info.assert_any_call(
         "[pipes] EMR cluster id example_cluster_id observed state transition to TERMINATED_WITH_ERRORS"
     )
@@ -320,19 +327,25 @@ def test_handle_emr_polling_terminated_with_errors_state(
 #######
 # _retrieve_state_dbr
 ######
-def test_retrieve_state_dbr_success(mock_workspace_client):
+def test_retrieve_state_dbr_success(mock_workspace_client, mock_tagging_client):
     mock_run = mock_workspace_client.jobs.get_run.return_value
-    client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+    client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
     result = client._retrieve_state_dbr("12345")
     assert result == mock_run
     client.main_client.jobs.get_run.assert_called_once_with("12345")  # type: ignore
 
 
-def test_retrieve_state_dbr_run_id_not_exist(mock_workspace_client):
+def test_retrieve_state_dbr_run_id_not_exist(
+    mock_workspace_client, mock_tagging_client
+):
     mock_workspace_client.jobs.get_run.side_effect = DatabricksError(
         "Run ID does not exist"
     )
-    client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+    client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
 
     with pytest.raises(RetryError) as excinfo:
         client._retrieve_state_dbr("non_existent_run_id")
@@ -342,9 +355,11 @@ def test_retrieve_state_dbr_run_id_not_exist(mock_workspace_client):
     mock_workspace_client.jobs.get_run.assert_called_with("non_existent_run_id")
 
 
-def test_retrieve_state_dbr_retry_success(mock_workspace_client):
+def test_retrieve_state_dbr_retry_success(mock_workspace_client, mock_tagging_client):
     mock_run = mock_workspace_client.jobs.get_run.return_value
-    client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+    client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
     mock_workspace_client.jobs.get_run.side_effect = [DatabricksError, mock_run]
     result = client._retrieve_state_dbr("12345")
     assert result == mock_run
@@ -352,16 +367,22 @@ def test_retrieve_state_dbr_retry_success(mock_workspace_client):
     client.main_client.jobs.get_run.assert_called_with("12345")  # type: ignore
 
 
-def test_correctly_returns_run_state(mock_workspace_client):
+def test_correctly_returns_run_state(mock_workspace_client, mock_tagging_client):
     mock_run = mock_workspace_client.jobs.get_run.return_value
-    client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+    client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
     result = client._retrieve_state_dbr("12345")
     assert result == mock_run
     client.main_client.jobs.get_run.assert_called_once_with("12345")  # type: ignore
 
 
-def test_logs_retry_attempts_and_sleep_time(caplog, mock_workspace_client):
-    client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+def test_logs_retry_attempts_and_sleep_time(
+    caplog, mock_workspace_client, mock_tagging_client
+):
+    client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
     mock_workspace_client.jobs.get_run.side_effect = DatabricksError(
         "Run ID does not exist"
     )
@@ -382,24 +403,26 @@ def test_logs_retry_attempts_and_sleep_time(caplog, mock_workspace_client):
 
 
 @patch("ascii_library.orchestration.pipes.cloud_client.get_dagster_logger")
-def test_successfully_retrieves_state(mock_get_dagster_logger, mock_workspace_client):
-    mock_run = MagicMock()
-    mock_run.state.life_cycle_state = "RUNNING"
-    mock_workspace_client.jobs.get_run.return_value = mock_run
+def test_successfully_retrieves_state(
+    mock_get_dagster_logger, mock_workspace_client, mock_dbr_run
+):
+    mock_dbr_run.state.life_cycle_state = jobs.RunLifeCycleState.RUNNING
     pipes_client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
-    run_id = "12345"
+    run_id = str(mock_dbr_run.job_id)
     result = pipes_client._handle_dbr_polling(run_id)
     assert result is True
     mock_workspace_client.jobs.get_run.assert_called_once_with(run_id)
-    assert pipes_client.last_observed_state == "RUNNING"
-    mock_get_dagster_logger().debug.assert_called_with(
-        f"[pipes] Databricks run {run_id} observed state transition to RUNNING"
+    mock_get_dagster_logger().debug.assert_called_once_with(
+        f"[pipes] Databricks run {run_id} observed state transition to {jobs.RunLifeCycleState.RUNNING}"
     )
+    assert pipes_client.last_observed_state == jobs.RunLifeCycleState.RUNNING
 
 
-def test_invalid_run_id(mock_workspace_client):
+def test_invalid_run_id(mock_workspace_client, mock_tagging_client):
     mock_workspace_client.jobs.get_run.side_effect = DatabricksError("Run ID not found")
-    pipes_client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+    pipes_client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
     run_id = "invalid_run_id"
 
     with pytest.raises(RetryError):
@@ -417,12 +440,15 @@ def test_logs_state_transitions(
     mock_get_dagster_logger,
     mock_workspace_client,
     mock_dbr_run,
+    mock_tagging_client,
 ):
     mock_logger = MagicMock()
     mock_get_dagster_logger.return_value = mock_logger
     mock_dbr_run.state.life_cycle_state = jobs.RunLifeCycleState.TERMINATED
     mock_workspace_client.jobs.get_run.return_value = mock_dbr_run
-    pipes_client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+    pipes_client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
     run_id = "54321"
     call_args_list = mock_logger.debug.call_args_list
     result = pipes_client._handle_dbr_polling(run_id)
@@ -449,12 +475,15 @@ def test_handles_internal_error_state_correctly(
     mock_get_dagster_logger,
     mock_workspace_client,
     mock_dbr_run,
+    mock_tagging_client,
 ):
     mock_logger = MagicMock()
     mock_get_dagster_logger.return_value = mock_logger
     mock_dbr_run.state.life_cycle_state = jobs.RunLifeCycleState.INTERNAL_ERROR
     mock_workspace_client.jobs.get_run.return_value = mock_dbr_run
-    pipes_client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+    pipes_client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
     run_id = "12345"
     result = pipes_client._handle_dbr_polling(run_id)
     assert result is False
@@ -463,29 +492,35 @@ def test_handles_internal_error_state_correctly(
     mock_handle_terminated_state.assert_called_once_with(run=mock_dbr_run)
 
 
-def test_continues_polling_if_state_not_terminal(mock_workspace_client):
-    mock_run = MagicMock()
-    mock_run.state.life_cycle_state = "RUNNING"
-    mock_workspace_client.jobs.get_run.return_value = mock_run
+def test_continues_polling_if_state_not_terminal(
+    mock_workspace_client, mock_tagging_client, mock_dbr_run
+):
+    mock_dbr_run.state.life_cycle_state = jobs.RunLifeCycleState.RUNNING
     pipes_client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
-    run_id = "12345"
+    run_id = str(mock_dbr_run.job_id)
+    pipes_client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
     result = pipes_client._handle_dbr_polling(run_id)
     assert result is True
     mock_workspace_client.jobs.get_run.assert_called_once_with(run_id)
-    assert pipes_client.last_observed_state == "RUNNING"
+    assert pipes_client.last_observed_state == RunLifeCycleState.RUNNING
 
 
-def test_correctly_updates_last_observed_state(mock_workspace_client):
-    mock_run = MagicMock()
-    mock_run.state.life_cycle_state = "TERMINATED"
-    mock_workspace_client.jobs.get_run.return_value = mock_run
+def test_correctly_updates_last_observed_state(
+    mock_workspace_client, mock_tagging_client, mock_dbr_run
+):
+    mock_dbr_run.state.life_cycle_state = jobs.RunLifeCycleState.TERMINATED
     pipes_client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
-    pipes_client.last_observed_state = "RUNNING"
-    run_id = "12345"
-    result = pipes_client._handle_dbr_polling(run_id)
-    assert result is True
+    pipes_client.last_observed_state = jobs.RunLifeCycleState.RUNNING
+    run_id = str(mock_dbr_run.job_id)
+    pipes_client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
+    pipes_client._handle_dbr_polling(run_id)
     mock_workspace_client.jobs.get_run.assert_called_once_with(run_id)
-    assert pipes_client.last_observed_state == "TERMINATED"
+    get_dagster_logger().debug(f"Handling terminated state for run: {run_id}")
+    assert pipes_client.last_observed_state == RunLifeCycleState.TERMINATED
 
 
 #######
@@ -510,9 +545,11 @@ def test_successful_emr_polling(mock_handle_emr_polling, mock_sleep, mock_emr_cl
 @patch("time.sleep", return_value=None)
 @patch.object(NonAbstractPipesCloudClient, "_handle_dbr_polling", return_value=False)
 def test_successful_dbr_polling(
-    mock_handle_dbr_polling, mock_sleep, mock_workspace_client
+    mock_handle_dbr_polling, mock_sleep, mock_workspace_client, mock_tagging_client
 ):
-    client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+    client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
 
     client._poll_till_success(
         run_id="run123",
@@ -573,7 +610,7 @@ def test_raises_error_when_state_is_terminated_with_errors_error_message(
         "Cluster": {"Status": {"StateChangeReason": {"Message": "Error message"}}}
     }
     state = "TERMINATED"
-    with pytest.raises(DagsterPipesExecutionError):
+    with pytest.raises(CustomPipesException):
         client._handle_terminated_state_emr(job_flow, description, state)
 
 
@@ -589,7 +626,7 @@ def test_raises_error_when_state_is_terminated_with_errors_status(
         "Cluster": {"Status": {"StateChangeReason": {"Message": "normal message"}}}
     }
     state = "TERMINATED_WITH_ERRORS"
-    with pytest.raises(DagsterPipesExecutionError):
+    with pytest.raises(CustomPipesException):
         client._handle_terminated_state_emr(job_flow, description, state)
 
 
@@ -649,7 +686,7 @@ def test_correct_tagging_of_resources_failure(
     mock_dbr_run.state.result_state = jobs.RunResultState.FAILED
     mock_dbr_run.state.state_message = "Run failed"
 
-    with pytest.raises(DagsterPipesExecutionError) as excinfo:
+    with pytest.raises(CustomPipesException) as excinfo:
         client._handle_terminated_state_dbr(mock_dbr_run)
 
     assert str(excinfo.value) == "Error running Databricks job: Run failed"
@@ -764,9 +801,12 @@ def test_upload_file_to_cloud_dbfs(
     mock_upload_file_to_s3,
     temp_library,
     mock_workspace_client,
+    mock_tagging_client,
 ):
     temp_library = "/path/to/test_file.py"
-    client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+    client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
     cloud_path = "dbfs:/test-file.zip"
 
     client._upload_file_to_cloud(local_file_path=temp_library, cloud_path=cloud_path)
@@ -785,9 +825,12 @@ def test_upload_file_to_cloud_s3_if_whl(
     mock_upload_file_to_s3,
     temp_library,
     mock_workspace_client,
+    mock_tagging_client,
 ):
     temp_library = "/path/to/test_file.whl"
-    client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+    client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
     cloud_path = "s3:/bucket/test-file.zip"
 
     client._upload_file_to_cloud(local_file_path=temp_library, cloud_path=cloud_path)
@@ -908,9 +951,13 @@ def test_upload_file_to_s3_failure(mock_get_dagster_logger, mock_emr_client):
 
 @patch("builtins.open", new_callable=mock_open, read_data=b"data")
 @patch("ascii_library.orchestration.pipes.cloud_client.get_dagster_logger")
-def test_upload_file_to_dbfs(mock_get_dagster_logger, mock_open, mock_workspace_client):
+def test_upload_file_to_dbfs(
+    mock_get_dagster_logger, mock_open, mock_workspace_client, mock_tagging_client
+):
     mock_logger = mock_get_dagster_logger.return_value
-    client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
+    client = NonAbstractPipesCloudClient(
+        main_client=mock_workspace_client, tagging_client=mock_tagging_client
+    )
     client._upload_file_to_dbfs("local/path", "dbfs/path")
     mock_open.assert_called_once_with("local/path", "rb")
     mock_workspace_client.dbfs.put.assert_called_once_with(

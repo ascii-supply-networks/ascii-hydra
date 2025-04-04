@@ -90,6 +90,15 @@ class VolumeType(Enum):
     magnetic = "standard"
 
 
+class Subnets(Enum):
+    usEast1b = "subnet-02035452bafe54090"  # main
+    usEast1e = "subnet-04be55a5e7990e7fe"
+    usEast1d = "subnet-0deb46a6dcbcb90be"
+    usEast1a = "subnet-01c57c11d6c92a586"
+    usEast1c = "subnet-087f4559eec6caddb"
+    usEast1f = "subnet-01e0cb6f08abb93ee"
+
+
 pipeline_bucket = "ascii-supply-chain-research-pipeline"
 mock = False
 sizeInGB = 300
@@ -97,9 +106,9 @@ volumeType = VolumeType.generalPurpose2
 volumesPerInstance = 1
 ebsOptimized = True
 percentageOfOnDemandPrice = 70.0
-allocationStrategy = AllocationStrategy.price
-timeoutDuration = 60
+allocationStrategy = AllocationStrategy.priceCapacity
+timeoutDuration = 10
 weightedCapacity = (
     4  # this should be a number greater than 1 and should match the instance vcore
 )
-releaseLabel = "emr-7.3.0"
+releaseLabel = "emr-7.5.0"

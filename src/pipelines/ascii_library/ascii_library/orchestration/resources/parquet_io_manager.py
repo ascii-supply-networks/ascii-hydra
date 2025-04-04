@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import pandas as pd
 from dagster import (
@@ -9,8 +9,8 @@ from dagster import (
     OutputContext,
     ResourceDependency,
 )
-from dagster import _check as check
 from dagster_pyspark.resources import LazyPySparkResource
+from dagster_shared.check.functions import failed
 from pyspark.sql import DataFrame as PySparkDataFrame
 
 
@@ -28,7 +28,7 @@ class PartitionedParquetIOManager(ConfigurableIOManager):  # type: ignore
 
     _base_path: Optional[str]
     pyspark: ResourceDependency[LazyPySparkResource]
-    _storage_options: Mapping[str, str]
+    _storage_options: Dict[str, Any]
 
     @property
     def storage_options(self):
@@ -72,7 +72,7 @@ class PartitionedParquetIOManager(ConfigurableIOManager):  # type: ignore
             return pd.read_parquet(path, storage_options=self._storage_options)
         if context.dagster_type.typing_type is str:
             return path
-        return check.failed(
+        return failed(
             f"Inputs of type {context.dagster_type} not supported. Please specify a valid type "
             "for this input either on the argument of the @asset-decorated function."
         )

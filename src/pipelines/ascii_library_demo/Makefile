@@ -1,19 +1,23 @@
 .PHONY: test
 test:
-	cd pipeline_example && pixi run -e testing test
+## Run the test suite using the 'testing' environment defined in pixi.
+	pixi run -e testing test
 
 .PHONY: fmt
 fmt:
-	cd pipeline_example && pixi run -e ci fmt
+## Format the codebase by running the CI formatting command via pixi.
+	pixi run -e ci fmt
 
 
 .PHONY: lint
 lint:
-	cd pipeline_example && pixi run -e lint lint
+## Lint the codebase by executing the linting command through pixi.
+	pixi run -e lint lint
 
 
 start:
-	cd pipeline_example && pixi run start
+## Start the development environment using pixi.
+	pixi run start
 
 #################################################################################
 # PROJECT RULES                                                                 #

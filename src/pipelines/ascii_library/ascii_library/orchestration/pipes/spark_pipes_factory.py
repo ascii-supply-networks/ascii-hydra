@@ -30,6 +30,8 @@ from ascii_library.orchestration.resources.utils import (
 
 deployment_env = get_dagster_deployment_environment()
 
+# TODO: remove all the ignores on this script
+
 
 def get_libs_dict(
     cfg: Optional[List[LibraryConfig]],
@@ -102,7 +104,7 @@ def spark_pipes_asset_factory(  # noqa: C901
     deps: Optional[Sequence[AssetsDefinition]] = None,
     group_name: Optional[str] = None,
     local_spark_config: Optional[Mapping[str, str]] = None,
-    libraries_to_build_and_upload: Sequence[str] = None,
+    libraries_to_build_and_upload: Sequence[str] = None,  # type: ignore
     databricks_cluster_config: Optional[dict[str, Any]] = None,
     libraries_config: Optional[List[LibraryConfig]] = None,
     emr_additional_libraries: Optional[List[LibraryConfig]] = None,
@@ -136,12 +138,10 @@ def spark_pipes_asset_factory(  # noqa: C901
             context: AssetExecutionContext,
         ) -> MaterializeResult:
             client_params = handle_shared_parameters(context, {})
-            client = spark_pipes_client.get_spark_pipes_client(
-                spark_pipes_client.engine
+            client, real_engine = get_engine_from_config(
+                client_params, spark_pipes_client
             )
-            return handle_pipeline_modes(
-                context, client_params, client, client, engine_to_use
-            )  # type: ignore
+            return handle_pipeline_modes(context, client_params, client, real_engine)  # type: ignore
 
     else:
 
@@ -199,9 +199,9 @@ def spark_pipes_asset_factory(  # noqa: C901
             },
         }
 
-        emr_job_config["Name"] = client_params["job_name"]
+        emr_job_config["Name"] = client_params["job_name"]  # type: ignore
         if emr_additional_libraries is not None:
-            engine_specific_libs = libraries_config.copy()
+            engine_specific_libs = libraries_config.copy()  # type: ignore
             engine_specific_libs.extend(emr_additional_libraries)
         else:
             engine_specific_libs = libraries_config
@@ -215,12 +215,12 @@ def spark_pipes_asset_factory(  # noqa: C901
                 )
         return client.run(  # type: ignore
             context=context,
-            emr_job_config=emr_job_config,
+            emr_job_config=emr_job_config,  # type: ignore
             bucket=pipeline_bucket,
             local_file_path=external_script_file,
             s3_path=s3_script_path,
             step_config=step_config,
-            libraries_to_build_and_upload=libraries_to_build_and_upload,
+            libraries_to_build_and_upload=libraries_to_build_and_upload,  # type: ignore
             libraries=engine_specific_libs,
             extras=client_params,
             fleet_config=fleet_filters,
@@ -234,15 +234,15 @@ def spark_pipes_asset_factory(  # noqa: C901
             external_script_file, prefix="dbfs:/external_pipes"
         )
         if dbr_additional_libraries is not None:
-            engine_specific_libs = libraries_config.copy()
-            engine_specific_libs.extend(dbr_additional_libraries)
+            engine_specific_libs = libraries_config.copy()  # type: ignore
+            engine_specific_libs.extend(dbr_additional_libraries)  # type: ignore
         else:
             engine_specific_libs = libraries_config
         if (
             "config" in client_params.keys()
             and "spot_bid_price_percent" in client_params["config"].keys()
         ):
-            databricks_cluster_config["spot_bid_price_percent"] = client_params[
+            databricks_cluster_config["spot_bid_price_percent"] = client_params[  # type: ignore
                 "config"
             ]["spot_bid_price_percent"]
         task = jobs.SubmitTask.from_dict(
@@ -263,7 +263,7 @@ def spark_pipes_asset_factory(  # noqa: C901
                 "SPARK_PIPES_ENGINE": "databricks",
             },
             extras=client_params,
-            libraries_to_build_and_upload=libraries_to_build_and_upload,
+            libraries_to_build_and_upload=libraries_to_build_and_upload,  # type: ignore
             local_file_path=external_script_file,
             dbfs_path=script_file_path_after_upload,
         ).get_materialize_result()
@@ -299,7 +299,7 @@ def spark_pipes_asset_factory(  # noqa: C901
 
 class BaseConfig(Config):
     spot_bid_price_percent: Optional[int] = Field(
-        default=85, description="percentage of instance to pay", gt=1, le=100
+        default=90, description="percentage of instance to pay", gt=1, le=100
     )
     override_default_engine: Optional[str] = Field(
         default=None,

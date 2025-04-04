@@ -1,11 +1,14 @@
-import os
-import warnings
+# ruff: noqa: E402
+# import warnings
+# import dagster as dg
+# warnings.filterwarnings("ignore", category=dg.ExperimentalWarning)
 
-from dagster import ConfigurableResource, ExperimentalWarning
+import os
+
+from botocore.config import Config
+from dagster import ConfigurableResource
 
 from ascii_library.orchestration.pipes import Engine, ExecutionMode
-
-warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
 
 class SparkPipesResource(ConfigurableResource):  # type: ignore
@@ -76,18 +79,27 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
                 region_name="us-east-1",
                 aws_access_key_id=aws_access_key_id,
                 aws_secret_access_key=aws_secret_access_key,
+                config=Config(
+                    retries={"max_attempts": 10, "mode": "adaptive"},
+                ),
             )
             s3Client = boto3.client(
                 "s3",
                 region_name="us-east-1",
                 aws_access_key_id=aws_access_key_id,
                 aws_secret_access_key=aws_secret_access_key,
+                config=Config(
+                    retries={"max_attempts": 10, "mode": "adaptive"},
+                ),
             )
             priceClient = boto3.client(
                 "pricing",
                 region_name="us-east-1",
                 aws_access_key_id=aws_access_key_id,
                 aws_secret_access_key=aws_secret_access_key,
+                config=Config(
+                    retries={"max_attempts": 10, "mode": "adaptive"},
+                ),
             )
             return PipesEmrEnhancedClient(
                 emr_client=emrClient,
