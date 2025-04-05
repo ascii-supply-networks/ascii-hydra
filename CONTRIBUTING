@@ -1,0 +1,61 @@
+# Contribution & Community Guidelines
+
+Thank you for your interest in contributing to the ASCII Hydra project!
+Our goal is to create a cost-efficient, vendor-agnostic framework for creating Spark-based assets that run on local PySpark, Databricks, or AWS EMR.
+We welcome contributions from developers, researchers, and community members who share our vision.
+Please follow these guidelines to help maintain a clean, efficient, and collaborative project.
+We welcome community contributions to code and to docs, issue, and bug reports, questions, feature requests all on GitHub.
+
+## How to Contribute
+1. Start a Discussion
+Before forking the repository, please open an issue in our GitHub Issues section to discuss your proposed change—whether it's a bug fix or a new feature. 
+This initial discussion helps us:
+
+- Confirm that your idea is aligned with the project's goals.
+- Coordinate efforts and avoid duplicate work.
+- Gather feedback from maintainers and the community.
+
+Please label your issue appropriately (e.g., bug or enhancement) and include as much detail as possible.
+
+2. Fork and Clone
+Once you’ve initiated the discussion and received initial feedback:
+
+Fork the repository on GitHub.
+Clone your fork locally:
+```bash
+Copy
+git clone git@github.com:your-username/hydra.git
+cd hydra
+```
+3. Make Your Changes
+- Create a Feature Branch:
+Start a new branch from the latest main branch (e.g., feature/my-new-feature).
+- Implement Your Changes:
+Modify the code, add new assets, or update documentation as needed.
+- Follow Coding Standards:
+Ensure that your changes meet standard style guidelines and best practices. 
+We use ruff so please ensure you run `make fmt` and `make lint` and it matches our syle. 
+- Before submitting your pull request, make sure all tests pass running `make test`. And add test accordingly for new code 
+
+## Community Guidelines
+
+- Respect & Professionalism:
+We strive for an inclusive and respectful environment.
+Please communicate courteously and constructively.
+- Constructive Feedback:
+Engage in discussions and provide clear, actionable feedback.
+Focus on the idea and the solution rather than personal opinions.
+- Documentation:
+Update documentation alongside your code changes.
+Clear documentation helps maintain project usability and transparency.
+- Issue Reporting:
+When reporting bugs or suggesting enhancements, provide detailed reproduction steps, logs, and screenshots as applicable.
+- Security:
+For any security-related issues, please contact the maintainers privately rather than posting publicly.
+
+Thank you for contributing to ASCII Hydra.
+Your efforts help build a robust, cost-efficient, and vendor-agnostic framework that benefits our entire community.
+If you have any questions, please feel free to reach out through our GitHub discussions or community channels.
+
+Happy coding!
+
