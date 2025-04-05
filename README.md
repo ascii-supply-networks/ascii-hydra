@@ -46,7 +46,7 @@ pixi run -e ci fmt
 # check typing
 pixi run -e ci lint
 # run tests
-pixi run -e testing test
+pixi run -e example test
 ```
 
 alterantively use the makefile via:
