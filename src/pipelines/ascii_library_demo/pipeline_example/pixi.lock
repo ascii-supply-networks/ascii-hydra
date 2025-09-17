@@ -1361,8 +1361,8 @@ packages:
   version: 0.0.1
   sha256: ed711feafd963af18ad6b66014cb0d222557732d5100720321d72d217dc85474
   requires_dist:
-  - dagster>=1.10.0,<1.11
-  - dagster-pipes>=1.10.0,<1.11
+  - dagster>=1.11.10,<1.12
+  - dagster-pipes>=1.11.10,<1.12
   - boto3
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/noarch/attrs-24.2.0-pyh71513ae_0.conda

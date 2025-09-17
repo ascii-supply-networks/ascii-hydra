@@ -32,7 +32,7 @@ class SparkScriptPipes(ABC):
     def get_base_path_seeds(
         self,
         execution_mode: ExecutionMode,
-    ) -> str:
+    ) -> str:  # pyrefly: ignore
         if execution_mode == ExecutionMode.SmallDevSampleS3:
             return f"s3a://{self.sample_data}/ascii_seeds"
         elif execution_mode == ExecutionMode.SmallDevSampleLocal:
@@ -43,7 +43,7 @@ class SparkScriptPipes(ABC):
     def get_base_path_IO(
         self,
         execution_mode: ExecutionMode,
-    ) -> str:
+    ) -> str:  # pyrefly: ignore
         if execution_mode == ExecutionMode.SmallDevSampleS3:
             return f"s3a://{self.bucket_cc_dev_results}"
         elif execution_mode == ExecutionMode.SmallDevSampleLocal:
@@ -54,12 +54,12 @@ class SparkScriptPipes(ABC):
     def get_base_path_commoncrawl(
         self,
         execution_mode: ExecutionMode,
-    ) -> str:
+    ) -> str:  # pyrefly: ignore
         if execution_mode == ExecutionMode.SmallDevSampleS3:
             return f"s3a://{self.sample_data}/"
         elif execution_mode == ExecutionMode.SmallDevSampleLocal:
             return (
-                Path("../../../reference-data/pipeline_sample_data/commoncrawl")
+                Path("../../../../reference-data/pipeline_sample_data/commoncrawl")
                 .resolve()
                 .as_uri()
             )
@@ -93,7 +93,7 @@ class SparkScriptPipes(ABC):
             )
             self.reference_data_path = os.environ.get(
                 "REFERENCE_DATA_PATH",
-                "../../../reference-data/pipeline_sample_data/commoncrawl",
+                "../../../../reference-data/pipeline_sample_data/commoncrawl",
             )
 
             if engine == Engine.Local:

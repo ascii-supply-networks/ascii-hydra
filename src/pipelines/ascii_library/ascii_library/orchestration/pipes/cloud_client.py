@@ -29,7 +29,6 @@ from tenacity import (
     retry_if_exception_type,
     stop_after_attempt,
     stop_after_delay,
-    stop_any,
     wait_exponential,
 )
 
@@ -86,8 +85,8 @@ class _PipesBaseCloudClient(PipesClient):
             self._tagging_client = kwargs.get("tagging_client")
 
     @retry(
-        stop=stop_any(stop_after_delay(20), stop_after_attempt(10)),
-        wait=wait_exponential(multiplier=0.5, min=0.5, max=5),
+        stop=stop_after_delay(20) | stop_after_attempt(10),
+        wait=wait_exponential(multiplier=1, max=60),
         after=after_retry,
         retry=retry_if_exception_type(
             (
@@ -120,13 +119,13 @@ class _PipesBaseCloudClient(PipesClient):
             return True
 
     @retry(
-        reraise=True,
-        stop=stop_any(stop_after_delay(20), stop_after_attempt(10)),
-        wait=wait_exponential(multiplier=0.5, min=0.5, max=5),
-        retry=retry_if_exception_type(DatabricksError),
+        stop=stop_after_delay(20) | stop_after_attempt(10),
+        wait=wait_exponential(multiplier=1, max=60),
+        after=after_retry,
+        retry=retry_if_exception_type((DatabricksError)),
     )
     def _retrieve_state_dbr(self, run_id) -> jobs.Run:
-        return self.main_client.jobs.get_run(run_id)
+        return self.main_client.jobs.get_run(run_id)  # pyrefly: ignore
 
     def _handle_dbr_polling(self, run_id):
         run = self._retrieve_state_dbr(run_id)
@@ -136,7 +135,7 @@ class _PipesBaseCloudClient(PipesClient):
             get_dagster_logger().debug(
                 f"[pipes] Databricks run {run_id} observed state transition to {state.life_cycle_state}"
             )
-            self.last_observed_state = state.life_cycle_state
+            self.last_observed_state = state.life_cycle_state  # pyrefly: ignore
         if state.life_cycle_state in (
             jobs.RunLifeCycleState.TERMINATED,
             jobs.RunLifeCycleState.SKIPPED,

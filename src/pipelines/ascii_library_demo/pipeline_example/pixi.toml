@@ -29,21 +29,21 @@ pyspark = "~=3.5.3"
 openjdk = "~=17.0.11"
 fsspec = ">=2024.9.0"
 s3fs = ">=2024.9.0"
-dagster = ">=1.10.0,<1.11"
-dagster-webserver = ">=1.10.0,<1.11"
-dagster-pipes = ">=1.10.0,<1.11"
+dagster = ">=1.11.10,<1.12"
+dagster-webserver = ">=1.11.10,<1.12"
+dagster-pipes = ">=1.11.10,<1.12"
 
 [feature.example.pypi-dependencies]
 tenacity = ">=9.0.0,<10"
-dagster-shared = ">=0.26.0,<0.27"
-dagster-aws = ">=0.26.0,<0.27"
-dagster-pyspark = ">=0.26.0,<0.27"
-dagster-databricks = ">=0.26.0,<0.27"
+dagster-shared = ">=0.27.10,<0.28"
+dagster-aws = ">=0.27.10,<0.28"
+dagster-pyspark = ">=0.27.10,<0.28"
+dagster-databricks = ">=0.27.10,<0.28"
 
-delta-spark = "~=3.2.1"
+delta-spark = "~=3.3.2"
 deltalake = ">=0.22.3,<0.23"
 build = "~=1.2.2"
-databricks-sdk = ">=0.8,<0.33"
+databricks-sdk = ">=0.41,<0.66"
 ascii_library = { path = "src/pipelines/ascii_library", editable = true }
 pipeline_example = { path = "src/pipelines/ascii_library_demo/pipeline_example", editable = true }
 

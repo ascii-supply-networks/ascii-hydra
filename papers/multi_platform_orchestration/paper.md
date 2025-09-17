@@ -41,7 +41,7 @@ print-pdf:
 ## Summary
 
 The rapid evolution of big data has amplified the need for robust and efficient data processing.
-Spark-based Platform-as-a-Service (PaaS) options, like Databricks(DBR) and Amazon EMR, offer strong analytics.
+Spark-based Platform-as-a-Service (PaaS) options, like Databricks and Amazon EMR, offer strong analytics.
 But at the cost of high operational expenses and vendor lock-in [@kumar].
 Despite being user-friendly, their cost structures and opaque pricing can lead to inefficiencies.
 
@@ -51,9 +51,8 @@ It does this by integrating multiple Spark environments.
 We showcase Dagster's power to boost efficiency.
 It enforces coding best practices and reduce costs.
 Our implementation showed a 12% speedup over EMR.
-It cut costs by 40% compared to DBR, saving over 300 euros per pipeline run in our test
-case.
-Our framework, ASCII-hydra, supports rapid prototyping and testing.
+It cut costs by 40% compared to DBR, saving over 300 euros per pipeline run.
+Our framework supports rapid prototyping and testing.
 This is key for continuous development and efficiency.
 It promotes a sustainable model for large-scale data processing.
 
@@ -89,7 +88,7 @@ This approach bridges existing gaps, deftly managing data tasks across diverse P
 The proposed framework improves reproducibility by centralizing metadata management and standardizing orchestration across diverse environments.
 This in turn reduces infrastructure complexity and aids in consistently replicating experiments, supporting
 reliable research.
-Notwithstanding the mounting interest in data pipelines, authors such as Anil et al. [@Anil] concentrate on the optimisation of big data processing through sophisticated scheduling techniques that minimise energy consumption and latency.
+Notwithstanding the mounting interest in data pipelines, authors such as Mathew et al. (2024) concentrate on the optimisation of big data processing through sophisticated scheduling techniques that minimise energy consumption and latency.
 While their work also aims to optimise resource utilisation in data centres, its core emphasis is on the algorithmic enhancement of scheduling mechanisms, rather than on orchestration across different PaaS solutions or on the promotion of coding practices within data pipelines.
 In their 2021 paper, @Daw examine the creation of a framework for automated scaling of resources in cloud environments.
 Their work focuses on aspects of resource allocation based on predictive analytics, with the goal of optimising operational costs and performance.
@@ -97,7 +96,7 @@ In contrast to the work presented here, these approaches do not address the inte
 
 ## Architecture Model
 
-We use Dagster, an open-source data orchestrator, in ASCII-hydra.
+We use Dagster, an open-source data orchestrator, in our framework.
 It builds, operates, and monitors data pipelines next to aligning with our cost and performance optimizations.
 That this pipeline can also significantly reduce resource use has been previously reported, see @Heiler:
 
@@ -131,16 +130,16 @@ To minimize inconsistencies and configuration issues, we further dockerized the 
 
 ### Example Use Case: Mining web-based interfirm networks from Common Crawl
 
-We show ASCII-hydra by making a web-based map of company ecosystems, as [@kinne].
+We show our framework by making a web-based map of company ecosystems, as [@kinne].
 The research aim in such works is to find relationships between companies.
 To this end company websites are searched for hyperlinks to other company websites, often revealing collaborative innovation efforts.
 
 #### Datasets
 
-- Common Crawl CC-MAIN-2019-30:
-This dataset comprises WARC (Web ARChive) files containing raw web crawl data, and WAT files storing computed metadata for the month of July 2019.
+- Common Crawl CC-MAIN:
+This dataset comprises WARC (Web ARChive) files containing raw web crawl data, and WAT files storing computed metadata.
 - Seed Nodes:
-A subset of URLs (e.g., landing pages of company websites) identified as starting points for our analysis.
+A subset of URLs (e.g., langing pages of company websites) identified as starting points for our analysis.
 These nodes are processed to ensure they are relevant and free of common problems.
 
 #### Pipeline Breakdown
@@ -157,21 +156,21 @@ Our pipeline consists of four key assets:
 
 ![Detailed dagster pipeline showcasing how execution environments can be chosen as needed between local, EMR and DBR.\label{fig:pipleineDagster}](./static/pass-implementation-detail-in-action.png)
 
-Figure \ref{fig:pipleineDagster} shows assets that prove our framework’s adaptability and efficiency.
-ASCII-hydra can handle diverse computing needs across various platforms.
+Figure \ref{fig:pipleineDagster} hows assets that prove our framework’s adaptability and efficiency.
+The framework can handle diverse computing needs across various platforms.
 Data partitioning occurs along two dimensions:
 time and domain.
-The temporal partitioning matches the Common Crawl[^1] dataset.
+The temporal partitioning matches the Common Craw[^1] dataset.
 It streamlines data management and access.
 Domain-based partitioning, on the other hand, enables parallel processing of different research queries.
 This approach allows varied filtering in data analysis.
 It optimizes resources and enables task submission to the best platforms.
 
-[^1]: Common Crawl was accessed between October 2023 and March 2024 from [Common Crawl](https://registry.opendata.aws/commoncrawl). The specific batch is in [CC-MAIN-2019-30](https://index.commoncrawl.org/CC-MAIN-2019-30/)
+[^1]: Common Crawl was accessed between October 2023 and March 2024 from [Common Crawl](https://registry.opendata.aws/commoncrawl).
 
 ### Further Details
 
-For detailed information on the implementation challenges encountered during the development of ASCII-hydra, please refer to [Appendix 1](appendix_1.md).
+For detailed information on the implementation challenges encountered during the development of our framework, please refer to [Appendix 1](appendix_1.md).
 
 For a comprehensive comparison of the platforms used in our study, please refer to [Appendix 2](appendix_2.md).
 

@@ -76,7 +76,7 @@ class Suffix(Enum):
         if suffix_str[0].isdigit():
             suffix_str = f"_{suffix_str}"
         try:
-            return cls.suffix_order().index(cls[suffix_str])
+            return cls.suffix_order().index(cls[suffix_str])  # pyrefly: ignore
         except KeyError:
             return -1
 
@@ -111,4 +111,4 @@ timeoutDuration = 10
 weightedCapacity = (
     4  # this should be a number greater than 1 and should match the instance vcore
 )
-releaseLabel = "emr-7.5.0"
+releaseLabel = "emr-7.10.0"

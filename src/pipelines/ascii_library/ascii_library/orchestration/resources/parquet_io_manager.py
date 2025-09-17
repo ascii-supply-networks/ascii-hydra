@@ -100,7 +100,7 @@ class LocalPartitionedParquetIOManager(PartitionedParquetIOManager):  # type: ig
     base_key: Optional[str]
 
     @property  # type: ignore
-    def _base_path(self):
+    def _base_path(self):  # pyrefly: ignore
         out_path = Path("z_state") / "object_warehouse"
         out_path.mkdir(parents=True, exist_ok=True)
 
@@ -110,7 +110,7 @@ class LocalPartitionedParquetIOManager(PartitionedParquetIOManager):  # type: ig
             return str(out_path)
 
     @property  # type: ignore
-    def _storage_options(self):
+    def _storage_options(self):  # pyrefly: ignore
         return {}
 
 
@@ -121,11 +121,11 @@ class S3PartitionedParquetIOManager(PartitionedParquetIOManager):  # type: ignor
     endpoint_url: Optional[str]
 
     @property  # type: ignore
-    def _base_path(self):
+    def _base_path(self):  # pyrefly: ignore
         return "s3a://" + self.s3_bucket
 
     @property  # type: ignore
-    def _storage_options(self):
+    def _storage_options(self):  # pyrefly: ignore
         # Prep branch deployments:
         # listen to environment variables like:
         # DAGSTER_CLOUD_DEPLOYMENT_NAME for branch name and another one for boolean

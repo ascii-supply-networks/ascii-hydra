@@ -24,7 +24,7 @@ from ascii_library.orchestration.pipes.utils import (
 )
 from ascii_library.orchestration.resources.constants import aws_region, rackspace_user
 from ascii_library.orchestration.resources.emr_constants import pipeline_bucket
-from ascii_library.orchestration.resources.utils import (
+from ascii_library.utils.determine_env import (
     get_dagster_deployment_environment,
 )
 
@@ -302,7 +302,9 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                 self._poll_till_success(cluster_id=cluster_id)
             except CustomPipesException:
                 context.log.info("[pipes] execution interrupted, canceling EMR job.")
-                self._emr_client.terminate_job_flows(JobFlowIds=[cluster_id])
+                self._emr_client.terminate_job_flows(
+                    JobFlowIds=[cluster_id]  # pyrefly: ignore
+                )  # pyrefly: ignore
                 raise
             finally:
                 get_dagster_logger().debug("finished")

@@ -2,7 +2,7 @@ import base64
 import os
 import re
 import tempfile
-from unittest.mock import ANY, MagicMock, call, create_autospec, mock_open, patch
+from unittest.mock import MagicMock, call, create_autospec, mock_open, patch
 
 import boto3
 import pytest
@@ -31,7 +31,7 @@ from tenacity import (
 
 
 class NonAbstractPipesCloudClient(_PipesBaseCloudClient):
-    def run(self):
+    def run(self):  # pyrefly: ignore
         pass
 
     @retry(
@@ -41,7 +41,7 @@ class NonAbstractPipesCloudClient(_PipesBaseCloudClient):
         retry=retry_if_exception_type(DatabricksError),
     )
     def _retrieve_state_dbr(self, run_id):
-        return self.main_client.jobs.get_run(run_id)
+        return self.main_client.jobs.get_run(run_id)  # pyrefly: ignore
 
 
 class MockRetrying(BaseRetrying):
@@ -252,7 +252,7 @@ def test_log_transition_state(mock_get_dagster_logger, mock_emr_client):
         }
     )
     client = NonAbstractPipesCloudClient(main_client=mock_emr_client)
-    client.last_observed_state = "STARTING"
+    client.last_observed_state = "STARTING"  # pyrefly: ignore
     result = client._handle_emr_polling(cluster_id="example_cluster_id")
     assert result is True
     assert client.last_observed_state == "RUNNING"
@@ -280,7 +280,7 @@ def test_handle_emr_polling_terminated_state(mock_get_dagster_logger, mock_emr_c
         }
     )
     client = NonAbstractPipesCloudClient(main_client=mock_emr_client)
-    client.last_observed_state = "RUNNING"
+    client.last_observed_state = "RUNNING"  # pyrefly: ignore
     result = client._handle_emr_polling(cluster_id="example_cluster_id")
     assert result is False
     assert client.last_observed_state == "TERMINATED"
@@ -309,7 +309,7 @@ def test_handle_emr_polling_terminated_with_errors_state(
         }
     )
     client = NonAbstractPipesCloudClient(main_client=mock_emr_client)
-    client.last_observed_state = "RUNNING"
+    client.last_observed_state = "RUNNING"  # pyrefly: ignore
     with pytest.raises(
         CustomPipesException,
         match=re.escape("Error running EMR job flow: example_cluster_id"),
@@ -512,7 +512,7 @@ def test_correctly_updates_last_observed_state(
 ):
     mock_dbr_run.state.life_cycle_state = jobs.RunLifeCycleState.TERMINATED
     pipes_client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
-    pipes_client.last_observed_state = jobs.RunLifeCycleState.RUNNING
+    pipes_client.last_observed_state = jobs.RunLifeCycleState.RUNNING  # pyrefly: ignore
     run_id = str(mock_dbr_run.job_id)
     pipes_client = NonAbstractPipesCloudClient(
         main_client=mock_workspace_client, tagging_client=mock_tagging_client
@@ -711,6 +711,12 @@ def test_ensure_library_on_cloud(
     mock_file_relative_path.return_value = temp_library
     mock_package_library.return_value = [temp_library]
     mock_library_to_cloud_paths.return_value = "s3://test-bucket/test_library.zip"
+    client_file_path = os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            "../../ascii_library/ascii_library/orchestration/pipes/cloud_client.py",
+        )
+    )
 
     client = NonAbstractPipesCloudClient(
         main_client=mock_emr_client, s3_client=mock_s3_client
@@ -721,7 +727,7 @@ def test_ensure_library_on_cloud(
     )
 
     expected_calls = [
-        call(ANY, "../../../../test_library"),
+        call(client_file_path, "../../../../test_library"),
     ]
 
     mock_file_relative_path.assert_has_calls(expected_calls, any_order=True)

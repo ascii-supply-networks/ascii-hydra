@@ -10,37 +10,33 @@ from ascii_library.orchestration.pipes.utils import (
     library_to_cloud_paths,
     package_library,
 )
-from ascii_library.orchestration.resources.utils import (
+from ascii_library.utils.determine_env import (
     get_dagster_deployment_environment,
 )
 
-#######
-# get_dagster_deployment_environment
-#######
-
 
 def test_get_dagster_deployment_environment_set():
-    with patch.dict("os.environ", {"DAGSTER_DEPLOYMENT": "production"}):
+    with patch.dict("os.environ", {"DAGSTER_DEPLOYMENT": "prod"}):
         result = get_dagster_deployment_environment()
-        assert result == "production"
+        assert result == "PROD"
 
 
 def test_get_dagster_deployment_environment_not_set():
     with patch.dict("os.environ", {}, clear=True):
         result = get_dagster_deployment_environment()
-        assert result == "dev"
+        assert result == "BRANCH"
 
 
 def test_get_dagster_deployment_environment_with_custom_key():
-    with patch.dict("os.environ", {"CUSTOM_DEPLOYMENT": "staging"}):
+    with patch.dict("os.environ", {"CUSTOM_DEPLOYMENT": "dev"}):
         result = get_dagster_deployment_environment(deployment_key="CUSTOM_DEPLOYMENT")
-        assert result == "staging"
+        assert result == "BRANCH"
 
 
 def test_get_dagster_deployment_environment_with_default_value():
     with patch.dict("os.environ", {}, clear=True):
-        result = get_dagster_deployment_environment(default_value="testing")
-        assert result == "testing"
+        result = get_dagster_deployment_environment(default_value="dev")
+        assert result == "BRANCH"
 
 
 #######
@@ -50,12 +46,12 @@ def test_get_dagster_deployment_environment_with_default_value():
 
 def test_library_to_cloud_paths_dbfs():
     result = library_to_cloud_paths("random_lib", "dbfs")
-    assert result == "dbfs:/customlibs/dev/random_lib-0.0.0-py3-none-any.whl"
+    assert result == "dbfs:/customlibs/BRANCH/random_lib-0.0.0-py3-none-any.whl"
 
 
 def test_library_to_cloud_paths_non_dbfs():
     result = library_to_cloud_paths("random_lib", "s3")
-    assert result == "customlibs/dev/random_lib-0.0.0-py3-none-any.whl"
+    assert result == "customlibs/BRANCH/random_lib-0.0.0-py3-none-any.whl"
 
 
 #######

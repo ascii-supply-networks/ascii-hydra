@@ -42,7 +42,7 @@ basic_libraries = [
 
 dbr_additional_libraries = [
     LibraryConfig(
-        kind=LibraryKind.Pypi, version=">=0.8<0.33", name_id="databricks-sdk"
+        kind=LibraryKind.Pypi, version=">=0.41<0.66", name_id="databricks-sdk"
     ),
 ]
 

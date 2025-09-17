@@ -3,7 +3,7 @@ import os
 import subprocess
 
 from ascii_library.orchestration.pipes import ExecutionMode
-from ascii_library.orchestration.resources.utils import (
+from ascii_library.utils.determine_env import (
     get_dagster_deployment_environment,
 )
 
