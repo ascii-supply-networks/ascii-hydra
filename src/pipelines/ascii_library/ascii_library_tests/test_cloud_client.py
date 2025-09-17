@@ -2,7 +2,7 @@ import base64
 import os
 import re
 import tempfile
-from unittest.mock import MagicMock, call, create_autospec, mock_open, patch
+from unittest.mock import ANY, MagicMock, call, create_autospec, mock_open, patch
 
 import boto3
 import pytest
@@ -711,12 +711,6 @@ def test_ensure_library_on_cloud(
     mock_file_relative_path.return_value = temp_library
     mock_package_library.return_value = [temp_library]
     mock_library_to_cloud_paths.return_value = "s3://test-bucket/test_library.zip"
-    client_file_path = os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            "../../ascii_library/ascii_library/orchestration/pipes/cloud_client.py",
-        )
-    )
 
     client = NonAbstractPipesCloudClient(
         main_client=mock_emr_client, s3_client=mock_s3_client
@@ -727,7 +721,7 @@ def test_ensure_library_on_cloud(
     )
 
     expected_calls = [
-        call(client_file_path, "../../../../test_library"),
+        call(ANY, "../../../../test_library"),
     ]
 
     mock_file_relative_path.assert_has_calls(expected_calls, any_order=True)

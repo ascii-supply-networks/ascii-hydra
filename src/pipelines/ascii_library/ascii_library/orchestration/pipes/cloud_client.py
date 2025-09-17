@@ -29,6 +29,7 @@ from tenacity import (
     retry_if_exception_type,
     stop_after_attempt,
     stop_after_delay,
+    stop_any,
     wait_exponential,
 )
 
@@ -85,8 +86,8 @@ class _PipesBaseCloudClient(PipesClient):
             self._tagging_client = kwargs.get("tagging_client")
 
     @retry(
-        stop=stop_after_delay(20) | stop_after_attempt(10),
-        wait=wait_exponential(multiplier=1, max=60),
+        stop=stop_any(stop_after_delay(20), stop_after_attempt(10)),
+        wait=wait_exponential(multiplier=0.5, min=0.5, max=5),
         after=after_retry,
         retry=retry_if_exception_type(
             (
@@ -119,10 +120,10 @@ class _PipesBaseCloudClient(PipesClient):
             return True
 
     @retry(
-        stop=stop_after_delay(20) | stop_after_attempt(10),
-        wait=wait_exponential(multiplier=1, max=60),
-        after=after_retry,
-        retry=retry_if_exception_type((DatabricksError)),
+        reraise=True,
+        stop=stop_any(stop_after_delay(20), stop_after_attempt(10)),
+        wait=wait_exponential(multiplier=0.5, min=0.5, max=5),
+        retry=retry_if_exception_type(DatabricksError),
     )
     def _retrieve_state_dbr(self, run_id) -> jobs.Run:
         return self.main_client.jobs.get_run(run_id)
