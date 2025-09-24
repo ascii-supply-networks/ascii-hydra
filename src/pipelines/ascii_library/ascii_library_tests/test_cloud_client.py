@@ -273,7 +273,10 @@ def test_handle_emr_polling_terminated_state(mock_get_dagster_logger, mock_emr_c
             "Cluster": {
                 "Status": {
                     "State": "TERMINATED",
-                    "StateChangeReason": {"Message": "Job flow completed successfully"},
+                    "StateChangeReason": {
+                        "Message": "Job flow completed successfully",
+                        "Code": "ALL_STEPS_COMPLETED",
+                    },
                 },
                 "MasterPublicDnsName": "example-dns",
             }
@@ -312,10 +315,11 @@ def test_handle_emr_polling_terminated_with_errors_state(
     client.last_observed_state = "RUNNING"  # pyrefly: ignore
     with pytest.raises(
         CustomPipesException,
-        match=re.escape("Error running EMR job flow: example_cluster_id"),
-    ) as exc_info:
+        match=re.escape(
+            "EMR job example_cluster_id failed: [] Job flow terminated with errors"
+        ),
+    ):
         client._handle_emr_polling(cluster_id="example_cluster_id")
-    assert "Error running EMR job flow: example_cluster_id" in str(exc_info.value)
     mock_logger.info.assert_any_call(
         "[pipes] EMR cluster id example_cluster_id observed state transition to TERMINATED_WITH_ERRORS"
     )
@@ -583,7 +587,14 @@ def test_returns_false_when_state_is_terminated_success(mock_emr_client):
     client = NonAbstractPipesCloudClient(main_client=mock_emr_client)
     job_flow = "example_job_flow"
     description = {
-        "Cluster": {"Status": {"StateChangeReason": {"Message": "normal message"}}}
+        "Cluster": {
+            "Status": {
+                "StateChangeReason": {
+                    "Message": "normal message",
+                    "Code": "ALL_STEPS_COMPLETED",
+                }
+            }
+        }
     }
     state = "TERMINATED"
     result = client._handle_terminated_state_emr(job_flow, description, state)

@@ -11,6 +11,7 @@ authors = [
   { name = "Hernan Picatto", email = "hernan.picatto@ascii.ac.at" },
 ]
 license = { text = "MIT" } # Or another license identifier
+requires-python = ">=3.9"
 dependencies = [
   "dagster>=1.11.10,<1.12",
   "dagster-pipes>=1.11.10,<1.12",

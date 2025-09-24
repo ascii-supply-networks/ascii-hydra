@@ -19,6 +19,7 @@ class LibraryConfig:
     kind: LibraryKind
     name_id: str
     version: Optional[str] = None
+    extra_flags: Optional[str] = None
 
 
 class Engine(Enum):

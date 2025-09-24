@@ -59,6 +59,12 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
                 client_id=os.environ.get("DATABRICKS_CLIENT_ID", "dummy"),
                 client_secret=os.environ.get("DATABRICKS_CLIENT_SECRET", "dummy"),
             )
+            s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                region_name="us-east-1",
+            )
             tagging_client = boto3.client(
                 "resourcegroupstaggingapi",
                 aws_access_key_id=aws_access_key_id,
@@ -68,6 +74,7 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
             return PipesDatabricksEnhancedClient(
                 client=workspace_client,
                 tagging_client=tagging_client,
+                s3_client=s3_client,
             )
         elif engine_to_use == Engine.EMR:
             import boto3

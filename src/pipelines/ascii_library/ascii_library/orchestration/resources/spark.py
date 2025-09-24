@@ -64,7 +64,8 @@ def dev_spark_config(
             "spark.hadoop.fs.s3a.secret.key": secret,
             "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
             "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog",
-            "spark.jars.packages": "io.delta:delta-spark_2.12:3.3.2,org.postgresql:postgresql:42.7.7,org.apache.hadoop:hadoop-aws:3.3.6,org.apache.spark:spark-hadoop-cloud_2.12:3.5.5,com.johnsnowlabs.nlp:spark-nlp_2.12:6.1.3",
+            # org.apache.hadoop:hadoop-aws:3.4.2
+            "spark.jars.packages": "io.delta:delta-spark_2.12:3.3.2,org.postgresql:postgresql:42.7.7,org.apache.spark:spark-hadoop-cloud_2.12:3.5.6,com.johnsnowlabs.nlp:spark-nlp_2.12:6.1.3",
             "spark.databricks.delta.schema.autoMerge.enabled": "True",
             "spark.databricks.delta.schema.autoMerge.enabledOnWrite": "True",
             "spark.local.dir": os.environ.get("SPARK_DIR", "/data/raid5/data/sparktmp"),

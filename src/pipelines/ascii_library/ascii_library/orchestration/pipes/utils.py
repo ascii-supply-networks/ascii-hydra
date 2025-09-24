@@ -1,6 +1,7 @@
 import glob
 import os
 import subprocess
+from pathlib import Path
 
 from ascii_library.orchestration.pipes import ExecutionMode
 from ascii_library.utils.determine_env import (
@@ -25,6 +26,43 @@ def library_from_dbfs_paths(dbfs_path: str):
     return last_part.split("-")[0]
 
 
+def empty_dir(path: Path) -> None:  # noqa: C901
+    """
+    Ensure `path` exists and is empty.
+    Removes files, dirs, and symlinks under it using pathlib only.
+    """
+    path.mkdir(parents=True, exist_ok=True)
+
+    # Post-order: deepest paths first (so directories are empty before rmdir)
+    for p in sorted(
+        path.rglob("*"), key=lambda x: x.as_posix().count("/"), reverse=True
+    ):
+        try:
+            if p.is_dir() and not p.is_symlink():
+                # _chmod_writable(p)
+                p.rmdir()  # only works when empty (we emptied children first)
+            else:
+                # _chmod_writable(p)
+                p.unlink(missing_ok=True)  # files or symlinks
+        except FileNotFoundError:
+            pass  # race-safe
+        except PermissionError:
+            # try once more after forcing writable
+            # _chmod_writable(p)
+            try:
+                p.rmdir() if (p.is_dir() and not p.is_symlink()) else p.unlink(
+                    missing_ok=True
+                )
+            except Exception:
+                raise  # bubble up if it really won't go
+
+
+def ensure_empty(pathlike) -> Path:
+    p = Path(pathlike).resolve()
+    empty_dir(p)
+    return p
+
+
 def package_library(mylib_path):  # noqa
     mylib_path = os.path.abspath(mylib_path)
     dist_path = os.path.join(mylib_path, "dist")
@@ -36,8 +74,7 @@ def package_library(mylib_path):  # noqa
     else:
         os.makedirs(dist_path)
     if os.path.exists(build_path):
-        for f in glob.glob(os.path.join(build_path, "*")):
-            os.remove(f)
+        empty_dir(Path(build_path))
 
     subprocess.check_call(
         ["python", "-m", "build", "--wheel", "--outdir", dist_path], cwd=mylib_path

@@ -10,6 +10,7 @@ from dagster import (
     PartitionsDefinition,
     PipesSubprocessClient,
     asset,
+    get_dagster_logger,
 )
 from databricks.sdk.service import jobs
 from pydantic import Field
@@ -245,6 +246,10 @@ def spark_pipes_asset_factory(  # noqa: C901
             databricks_cluster_config["spot_bid_price_percent"] = client_params[  # type: ignore
                 "config"
             ]["spot_bid_price_percent"]
+            databricks_cluster_config["cluster_log_conf"] = {  # type: ignore
+                "dbfs": {"destination": "dbfs:/cluster-logs/dagster"}
+            }  # type: ignore
+            get_dagster_logger().debug(databricks_cluster_config)
         task = jobs.SubmitTask.from_dict(
             {
                 "new_cluster": databricks_cluster_config,

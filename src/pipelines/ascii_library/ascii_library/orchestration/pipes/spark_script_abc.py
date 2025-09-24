@@ -80,16 +80,16 @@ class SparkScriptPipes(ABC):
             context.log.info(f"Execution mode: {execution_mode}")
 
             self.bucket_seed_nodes = os.environ.get(
-                "BUCKET_SEED_NODES", "default-seed-nodes"
+                "BUCKET_SEED_NODES", "ascii-supply-chain-research-input"
             )
             self.bucket_cc_results = os.environ.get(
-                "BUCKET_CC_RESULTS", "default-cc-results"
+                "BUCKET_CC_RESULTS", "ascii-supply-chain-research-results"
             )
             self.bucket_cc_dev_results = os.environ.get(
-                "BUCKET_CC_DEV_RESULTS", "default-cc-dev-results"
+                "BUCKET_CC_DEV_RESULTS", "ascii-supply-chain-research-dev-results"
             )
             self.sample_data = os.environ.get(
-                "SAMPLE_DATA_BUCKET", "default-sample-data"
+                "SAMPLE_DATA_BUCKET", "ascii-supply-chain-research-sample-data"
             )
             self.reference_data_path = os.environ.get(
                 "REFERENCE_DATA_PATH",

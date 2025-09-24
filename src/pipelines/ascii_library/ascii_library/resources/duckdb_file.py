@@ -24,7 +24,10 @@ class DuckDBFileResource(DuckDBConnectionProvider):
     @contextmanager
     def duckdb_connect(self) -> Generator[DuckDBPyConnection, None, None]:
         """Yields a connection to the specified DuckDB file."""
-        conn = duckdb.connect(database=self.file_path, read_only=self.read_only)
+        if self.file_path == ":memory:":
+            conn = duckdb.connect(database=self.file_path)
+        else:
+            conn = duckdb.connect(database=self.file_path, read_only=self.read_only)
         try:
             yield conn
         finally:

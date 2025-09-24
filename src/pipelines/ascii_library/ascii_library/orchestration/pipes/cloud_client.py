@@ -22,7 +22,6 @@ from dagster_shared.check.functions import numeric_param, opt_inst_param
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import DatabricksError
 from databricks.sdk.service import jobs
-from mypy_boto3_resourcegroupstaggingapi import ResourceGroupsTaggingAPIClient
 from tenacity import (
     RetryCallState,
     retry,
@@ -165,7 +164,9 @@ class _PipesBaseCloudClient(PipesClient):
             time.sleep(self.poll_interval_seconds)
 
     def _handle_terminated_state_emr(self, job_flow, description, state):
-        message = description["Cluster"]["Status"]["StateChangeReason"]["Message"]
+        reason = description["Cluster"]["Status"].get("StateChangeReason", {}) or {}
+        code = (reason.get("Code") or "").upper()
+        message = reason.get("Message") or ""
         if (
             "error" in message.lower()
             or "failed" in message.lower()
@@ -174,38 +175,66 @@ class _PipesBaseCloudClient(PipesClient):
             raise CustomPipesException(
                 message=f"Error running EMR job flow: {job_flow}"
             )
-        elif state == "TERMINATING" or state == "TERMINATED":
+        elif (
+            state == "TERMINATING" or state == "TERMINATED"
+        ) and code == "ALL_STEPS_COMPLETED":
             return False
         else:
             return True
 
+    def _handle_terminated_state_emr(self, job_flow, description, state):
+        status = description["Cluster"]["Status"]
+        reason = status.get("StateChangeReason", {}) or {}
+        code = (reason.get("Code") or "").upper()
+        message = reason.get("Message") or ""
+
+        if state == "TERMINATED_WITH_ERRORS":
+            raise CustomPipesException(
+                message=f"EMR job {job_flow} failed: [{code}] {message}"
+            )
+
+        if state in ("TERMINATED", "TERMINATING"):
+            if code == "ALL_STEPS_COMPLETED":
+                return False  # success -> stop polling
+            log_uri = description["Cluster"].get("LogUri") or ""
+            hint = f" (logs: {log_uri})" if log_uri else ""
+            raise CustomPipesException(
+                message=f"EMR job {job_flow} ended in {state} unexpectedly: [{code}] {message}{hint}"
+            )
+
+        return True
+
     def _handle_terminated_state_dbr(self, run):
         client = self._tagging_client
-        assert isinstance(client, ResourceGroupsTaggingAPIClient)
-        resources = client.get_resources(
-            TagFilters=[
-                {
-                    "Key": "JobId",
-                    "Values": [
-                        str(run.job_id),
-                    ],
-                },
-            ]
-        )
-        resource_arns = [
-            item["ResourceARN"]  # type: ignore[index]
-            for item in resources["ResourceTagMappingList"]
-        ]
-        if len(resource_arns) > 0:
-            for arn in resource_arns:
-                client.tag_resources(
-                    ResourceARNList=[arn],
-                    Tags={
-                        "jobId": str(run.job_id),
-                        "engine": self.engine,
-                        "executionMode": self.executionMode,
+        get_dagster_logger().debug(f"run: {run}")
+        try:
+            resources = client.get_resources(
+                TagFilters=[
+                    {
+                        "Key": "JobId",
+                        "Values": [
+                            str(run.job_id),
+                        ],
                     },
-                )
+                ]
+            )
+            resource_arns = [
+                item["ResourceARN"]  # type: ignore[index]
+                for item in resources["ResourceTagMappingList"]
+            ]
+            if len(resource_arns) > 0:
+                for arn in resource_arns:
+                    client.tag_resources(
+                        ResourceARNList=[arn],
+                        Tags={
+                            "jobId": str(run.job_id),
+                            "engine": self.engine,
+                            "executionMode": self.executionMode,
+                        },
+                    )
+        except Exception as e:
+            get_dagster_logger().debug(e)
+            raise
         if run.state.result_state == jobs.RunResultState.SUCCESS:
             return False
         else:
@@ -274,18 +303,27 @@ class _PipesBaseCloudClient(PipesClient):
     def _upload_file_to_s3(self, local_file_path: str, cloud_path: str, **kwargs):
         bucket = kwargs.get("bucket")
         get_dagster_logger().debug(f"uploading: {cloud_path} into bucket: {bucket}")
-        if self._s3_client is not None:
-            self._s3_client.upload_file(local_file_path, bucket, cloud_path)
-        else:  # noqa: E722
-            get_dagster_logger().debug("fail to upload to S3")
+        try:
+            if self._s3_client is not None:
+                self._s3_client.upload_file(local_file_path, bucket, cloud_path)
+            else:  # noqa: E722
+                get_dagster_logger().debug("fail to upload to S3")
+        except Exception as e:
+            get_dagster_logger().error(f"error: {e.with_traceback}")
+            raise
 
     def _upload_file_to_dbfs(self, local_file_path: str, dbfs_path: str):
-        assert isinstance(self.main_client, WorkspaceClient)
-        with open(local_file_path, "rb") as file:
-            encoded_string = base64.b64encode(file.read()).decode("utf-8")
-        self.main_client.dbfs.put(
-            path=dbfs_path, contents=encoded_string, overwrite=True
-        )
         get_dagster_logger().debug(
             f"uploading: {local_file_path} to DBFS at: {dbfs_path}"
         )
+        try:
+            assert isinstance(self.main_client, WorkspaceClient)
+            with open(local_file_path, "rb") as file:
+                encoded_string = base64.b64encode(file.read()).decode("utf-8")
+            self.main_client.dbfs.put(
+                path=dbfs_path, contents=encoded_string, overwrite=True
+            )
+        except Exception as e:
+            get_dagster_logger().error(e.with_traceback)
+            get_dagster_logger().error(e)
+            raise

@@ -19,7 +19,7 @@ def load_assets(
     Args:
         root_dir (str): The root directory of the respective dagster codelocation project.
     """
-    base = dg.load_from_defs_folder(project_root=Path(root_dir).parent.parent)
+    base = dg.load_from_defs_folder(path_within_project=Path(root_dir).parent.parent)
 
     materializable = [a for a in base.assets if isinstance(a, dg.AssetsDefinition)]  # type: ignore
     passthrough = [

@@ -1,5 +1,9 @@
 import os
+import shlex
+import signal
 from io import BytesIO, StringIO
+from textwrap import dedent
+from types import FrameType
 from typing import Any, Dict, List, Optional, Tuple
 
 from dagster import (
@@ -27,6 +31,9 @@ from ascii_library.orchestration.resources.emr_constants import pipeline_bucket
 from ascii_library.utils.determine_env import (
     get_dagster_deployment_environment,
 )
+
+TARGET_DIR = "/mnt/pydeps/ascii_extras"
+LOG_FILE = "/var/log/emr-bootstrap.log"
 
 
 class _PipesEmrClient(_PipesBaseCloudClient):
@@ -58,11 +65,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         self._price_client = price_client
         self._emr_client = emr_client
         self._s3_client = s3_client
-        # self._message_reader = message_reader or PipesEMRLogMessageReader(
-        #    s3_client=s3_client,
-        #    emr_client=emr_client,
-        #    check_cluster_every=check_cluster_every,
-        # )
+
         self._context_injector = context_injector or PipesS3ContextInjector(
             bucket=bucket, client=s3_client
         )
@@ -70,7 +73,10 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             bucket=bucket, client=s3_client
         )
 
-    def create_bootstrap_script(
+    def write_block(self, content, s: str):
+        content.write(dedent(s).lstrip())
+
+    def create_bootstrap_script(  # noqa: C901
         self,
         output_file: str = "bootstrap.sh",
         bucket: str = pipeline_bucket,
@@ -78,19 +84,72 @@ class _PipesEmrClient(_PipesBaseCloudClient):
     ):
         dagster_deployment = get_dagster_deployment_environment()
         content = StringIO()
-        content.write("#!/bin/bash\n")
+        self.write_block(
+            content,
+            """
+                #!/bin/bash
+                set -euo pipefail
+                """,
+        )
+        # TODO: Fix eventually and move to pixi controlled venv; this is a bit hacky
         if libraries is not None:
-            content.write("sudo yum update -y\n")
-            content.write("sudo yum install -y python3 python3-pip\n")
-            content.write("sudo pip3 uninstall -y py-dateutil\n")
-            for lib in libraries:
-                if lib.kind == LibraryKind.Wheel:
-                    self.handle_wheel(bucket, content, lib)
-                elif lib.kind == LibraryKind.Pypi:
-                    self.handle_pypi(content, lib)
+            self.write_block(
+                content,
+                f"""
+                LOG="{LOG_FILE}"
+                sudo mkdir -p "$(dirname "$LOG")"
+                # log the whole script as root → no permission errors
+                exec > >(sudo tee -a "$LOG") 2>&1
+                trap 'echo "== $(date) bootstrap FAILED (rc=$?) ==" >&2' ERR
+                echo "== $(date) bootstrap start =="
+
+                # make pip quiet and suppress 'running as root' warning
+                export PIP_DISABLE_PIP_VERSION_CHECK=1
+                export PIP_ROOT_USER_ACTION=ignore
+
+                TARGET="{TARGET_DIR}"
+                sudo mkdir -p "$TARGET"
+                sudo chmod -R a+rX "$TARGET"
+
+                # base Python
+                # sudo yum -y update
+                # sudo yum -y install python3 python3-pip
+                command -v /usr/bin/python3 >/dev/null 2>&1 || sudo yum -y install python3
+                /usr/bin/python3 -m pip --version >/dev/null 2>&1 || sudo yum -y install python3-pip
+                /usr/bin/python3 --version
+                /usr/bin/python3 -m pip --version
+
+                # make target visible to future shells (write LITERAL path)
+                echo 'export PYTHONPATH="{TARGET_DIR}${{PYTHONPATH:+:$PYTHONPATH}}"' | sudo tee /etc/profile.d/ascii_extras_path.sh >/dev/null
+                sudo chmod +x /etc/profile.d/ascii_extras_path.sh
+                # also for this shell:
+                export PYTHONPATH="{TARGET_DIR}${{PYTHONPATH:+:$PYTHONPATH}}"
+            """,
+            )
+            # load pypi first so we can reference in wheel
+            for kind in (LibraryKind.Pypi, LibraryKind.Wheel):
+                for lib in libraries:
+                    if lib.kind == kind:
+                        if kind == LibraryKind.Pypi:
+                            self.handle_pypi(content, lib)
+                        else:
+                            self.handle_wheel(bucket, content, lib)
+        self.write_block(
+            content,
+            r"""
+            SITEPKG="$(
+            /usr/bin/python3 -c 'import site,sys;p=[x for x in site.getsitepackages() if x.endswith("site-packages")];sys.stdout.write(p[0] if p else "")' \
+            2>/dev/null || echo ""
+            )"
+            if [ -n "$SITEPKG" ] && [ -d "$SITEPKG" ]; then
+            if ! echo "{TARGET_DIR}" | sudo tee "$SITEPKG/zzz_ascii_extras.pth" >/dev/null; then
+                echo "[WARN] Could not write zzz_ascii_extras.pth to $SITEPKG; relying on PYTHONPATH"
+            fi
+            fi
+        """.replace("{TARGET_DIR}", TARGET_DIR),
+        )
 
         destination = f"external_pipes/{dagster_deployment}/{output_file}"
-        # content.write("export SPARK_PIPES_ENGINE=emr\n")
         content.seek(0)
         get_dagster_logger().debug(f"Bootstrap file content: \n\n{content.getvalue()}")
         self._s3_client.upload_fileobj(
@@ -99,20 +158,42 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         return f"s3://{bucket}/{destination}"
 
     def handle_pypi(self, content, lib):
-        package_install = lib.name_id
-        if lib.version:
-            package_install += f"{lib.version}"
-        get_dagster_logger().debug(f"Installing library: {package_install}")
-        content.write(f"sudo pip install '{package_install}' \n")
-        content.write(f"sudo pip3 install '{package_install}' \n")
+        pkg = f"{lib.name_id}{lib.version or ''}"
+        flags = (lib.extra_flags or "").strip()
+        get_dagster_logger().debug(f"Installing library: {pkg}")
+
+        # Build the pip command once (into TARGET, ignore RPM packages)
+        base = (
+            "sudo /usr/bin/python3 -m pip install "
+            "--upgrade --ignore-installed --no-cache-dir "
+            '--target "$TARGET"'
+        )
+        if flags:
+            base += f" {flags}"
+
+        cmd = f"{base} {shlex.quote(pkg)}"
+        self.write_block(
+            content,
+            f"""
+            # Install {pkg} into $TARGET (isolated; no RPM conflicts)
+            {cmd}
+        """,
+        )
 
     def handle_wheel(self, bucket, content, lib):
         name_id = library_from_dbfs_paths(lib.name_id)
         path = library_to_cloud_paths(lib_name=name_id, filesystem="s3")
-        content.write(f"aws s3 cp s3://{bucket}/{path} /tmp \n")
+        local = f"/tmp/{name_id}-0.0.0-py3-none-any.whl"
+
+        self.write_block(
+            content,
+            f"""
+            # Wheel: s3://{bucket}/{path}
+            aws s3 cp s3://{bucket}/{path} {shlex.quote(local)}
+            sudo /usr/bin/python3 -m pip install --upgrade --ignore-installed --no-cache-dir --target "$TARGET" {shlex.quote(local)}
+        """,
+        )
         get_dagster_logger().debug(f"Installing library: {name_id}")
-        content.write(f"sudo pip install /tmp/{name_id}-0.0.0-py3-none-any.whl \n")
-        content.write(f"sudo pip3 install /tmp/{name_id}-0.0.0-py3-none-any.whl \n")
 
     def modify_env_var(self, cluster_config: dict, key: str, value: str):
         configs = cluster_config.get("Configurations", [])
@@ -122,8 +203,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                 props = config.get("Properties")
                 # props = config.get("Configurations")[0].get("Properties")
                 props[f"spark.yarn.appMasterEnv.{key}"] = value
-                # props[f"spark.executorEnv.{key}"] = value
-                # props[f"spark.yarn.appMasterEnv.{key}"] = value
+                props[f"spark.executorEnv.{key}"] = value
                 cluster_config["Configurations"][i]["Properties"] = props
             i += 1
         return cluster_config
@@ -206,12 +286,12 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         step_config,
         extras: PipesExtras,
     ) -> str:
-        get_dagster_logger().debug(
-            f"DAGSTER_PIPES_CONTEXT: {bootstrap_env['DAGSTER_PIPES_CONTEXT']}"
-        )
-        get_dagster_logger().debug(
-            f"DAGSTER_PIPES_MESSAGES: {bootstrap_env['DAGSTER_PIPES_MESSAGES']}"
-        )
+        # get_dagster_logger().debug(
+        #     f"DAGSTER_PIPES_CONTEXT: {bootstrap_env['DAGSTER_PIPES_CONTEXT']}"
+        # )
+        # get_dagster_logger().debug(
+        #     f"DAGSTER_PIPES_MESSAGES: {bootstrap_env['DAGSTER_PIPES_MESSAGES']}"
+        # )
         emr_job_config = self.modify_env_var(
             cluster_config=emr_job_config,
             key="DAGSTER_PIPES_CONTEXT",
@@ -231,6 +311,11 @@ class _PipesEmrClient(_PipesBaseCloudClient):
             cluster_config=emr_job_config,
             key="ASCII_WANDB",
             value=ascii_wandb_value,
+        )
+        emr_job_config = self.modify_env_var(
+            cluster_config=emr_job_config,
+            key="PYTHONPATH",
+            value=f"{TARGET_DIR}:${{PYTHONPATH:+:$PYTHONPATH}}",
         )
 
         job_flow = self._emr_client.run_job_flow(**emr_job_config)
@@ -255,7 +340,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
         )
         return job_flow["JobFlowId"]
 
-    def run(  # type: ignore
+    def run(  # noqa: C901 # type: ignore
         self,
         *,
         context: OpExecutionContext,
@@ -284,15 +369,47 @@ class _PipesEmrClient(_PipesBaseCloudClient):
 
         if extras is None:
             raise ValueError("Extras cannot be None.")
-        with open_pipes_session(
-            context=context,
-            message_reader=self._message_reader,
-            context_injector=self._context_injector,
-            extras=extras,
-        ) as session:
-            bootstrap_env = session.get_bootstrap_env_vars()
-            emr_job_config = extras.get("emr_job_config")  # type: ignore
+
+        cluster_id: Optional[str] = None
+
+        def _terminate_cluster_safely():
+            """Best-effort termination that works in STARTING/BOOTSTRAPPING/RUNNING/WAITING."""
+            if not cluster_id:
+                return
             try:
+                # Optional: tag the cluster to mark the source of termination
+                try:
+                    self._emr_client.add_tags(
+                        ResourceId=cluster_id,
+                        Tags=[{"Key": "canceled-by", "Value": "dagster"}],
+                    )
+                except Exception:
+                    pass
+                context.log.info(f"[pipes] terminating EMR cluster {cluster_id}")
+                self._emr_client.terminate_job_flows(JobFlowIds=[cluster_id])
+            except Exception as te:  # swallow; termination is best-effort
+                context.log.warning(
+                    f"[pipes] could not terminate EMR {cluster_id}: {te!r}"
+                )
+
+        old_sigterm = signal.getsignal(signal.SIGTERM)
+
+        def _on_sigterm(signum: int, frame: Optional[FrameType]):
+            _terminate_cluster_safely()
+            signal.signal(signal.SIGTERM, old_sigterm)
+            os.kill(os.getpid(), signal.SIGTERM)
+
+        signal.signal(signal.SIGTERM, _on_sigterm)
+
+        try:
+            with open_pipes_session(
+                context=context,
+                message_reader=self._message_reader,
+                context_injector=self._context_injector,
+                extras=extras,
+            ) as session:
+                bootstrap_env = session.get_bootstrap_env_vars()
+                emr_job_config = extras.get("emr_job_config")  # type: ignore
                 cluster_id = self.submit_emr_job(
                     bootstrap_env=bootstrap_env,
                     emr_job_config=emr_job_config,
@@ -300,14 +417,24 @@ class _PipesEmrClient(_PipesBaseCloudClient):
                     extras=extras,
                 )
                 self._poll_till_success(cluster_id=cluster_id)
-            except CustomPipesException:
-                context.log.info("[pipes] execution interrupted, canceling EMR job.")
-                self._emr_client.terminate_job_flows(
-                    JobFlowIds=[cluster_id]  # pyrefly: ignore
-                )  # pyrefly: ignore
-                raise
-            finally:
-                get_dagster_logger().debug("finished")
+        except CustomPipesException:
+            # EMR or steps failed → terminate cluster to avoid lingering capacity
+            context.log.info("[pipes] EMR/step failure detected; terminating cluster.")
+            _terminate_cluster_safely()
+            raise
+        except BaseException:
+            # Dagster canceled / SIGTERM / KeyboardInterrupt / any runtime error
+            context.log.info(
+                "[pipes] Dagster side interrupted; terminating EMR cluster."
+            )
+            _terminate_cluster_safely()
+            raise
+        finally:
+            try:
+                signal.signal(signal.SIGTERM, old_sigterm)
+            except Exception:
+                pass
+            get_dagster_logger().debug("finished")
         return PipesClientCompletedInvocation(session)
 
 

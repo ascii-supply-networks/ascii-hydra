@@ -57,6 +57,7 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
         context_injector: Optional[PipesContextInjector] = None,
         message_reader: Optional[PipesMessageReader] = None,
         forward_termination: bool = True,
+        **kwargs,
     ):
         super().__init__(
             main_client=client,
@@ -64,6 +65,8 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
             message_reader=message_reader,
             tagging_client=tagging_client,
         )
+        self._s3_client = kwargs.get("s3_client")
+        self._tagging_client = tagging_client
         self.client = client
         self.context_injector = opt_inst_param(
             context_injector,
@@ -207,11 +210,12 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
                 **ascii_wandb_value,
             }
             task = jobs.SubmitTask.from_dict(submit_task_dict)
-            run_id = self.client.jobs.submit(
+            submission = self.client.jobs.submit(
                 run_name=extras.get("job_name"),  # type: ignore
                 tasks=[task],
                 **(submit_kwargs or {}),
-            ).bind()["run_id"]
+            )
+            run_id = submission.run_id
             context.log.info(
                 f"Databricks url: {self.client.jobs.get_run(run_id).run_page_url}"
             )
@@ -225,7 +229,7 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
                         "[pipes] execution interrupted, canceling Databricks job."
                     )
                     self.client.jobs.cancel_run(run_id)
-                    self._poll_til_terminating(run_id)
+                    self._poll_til_terminating(str(run_id))
                 raise
         return PipesClientCompletedInvocation(pipes_session)
 
