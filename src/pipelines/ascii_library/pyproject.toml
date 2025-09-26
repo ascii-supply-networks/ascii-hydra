@@ -38,3 +38,5 @@ project-excludes = [
 
 search-path = ["."]
 python-version = "3.11.13"
+
+python-interpreter = "${PIXI_PROJECT_ROOT}/.pixi/envs/pipeline-remote-dev/bin/python3.11"
