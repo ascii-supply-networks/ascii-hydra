@@ -322,7 +322,7 @@ Temporary Items
 # ignore .DS_Store
 
 *.parquet
-*.txt
+#*.txt
 # ignore W&B files
 **/*checkpoint-*
 **/*wandb/run-*
