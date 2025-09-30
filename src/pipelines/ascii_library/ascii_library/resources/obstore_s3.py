@@ -9,7 +9,7 @@ from pydantic import Field
 
 
 class ObstoreS3Resource(ConfigurableResource):
-    """Fast rust based s3 client"""
+    """Dagster integration for fast rust based s3 client."""
 
     region_name: Optional[str] = Field(
         default=None, description="Specifies a custom region for the S3 session."

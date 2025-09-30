@@ -16,9 +16,7 @@ class PostgresConfig(dg.Config):
     """Configuration for a Postgres metadata backend."""
 
     type: Literal["postgres"] = "postgres"
-    host: str = Field(
-        default_factory=lambda: os.getenv("DUCKLAKE_PG_HOST", "localhost")
-    )
+    host: str = Field(default=os.getenv("DUCKLAKE_PG_HOST", "localhost"))
     port: int = Field(default=5432)
     database: str
     user: str
@@ -122,8 +120,8 @@ class DuckLakeLocalDirectory(dg.Config):
 
 
 class DuckLakeResource(DuckDBConnectionProvider):
-    """
-    A highly configurable Dagster resource for interacting with DuckLake.
+    """A highly configurable Dagster resource for interacting with DuckLake.
+
     Supports multiple metadata and storage backends.
     """
 
@@ -138,7 +136,7 @@ class DuckLakeResource(DuckDBConnectionProvider):
         default="ducklake", description="Alias for the attached DuckLake instance."
     )
     plugins: List[str] = Field(
-        default_factory=lambda: ["ducklake"],
+        default=["ducklake"],
         description="List of DuckDB plugins to install and load.",
     )
 

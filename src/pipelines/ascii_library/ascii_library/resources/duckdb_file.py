@@ -9,8 +9,8 @@ from .duckdb_protocol import DuckDBConnectionProvider
 
 
 class DuckDBFileResource(DuckDBConnectionProvider):
-    """
-    A Dagster resource that provides a connection to a local DuckDB file.
+    """A Dagster resource that provides a connection to a local DuckDB file.
+
     Implements the DuckDBConnectionProvider protocol.
     """
 

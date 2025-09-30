@@ -10,10 +10,12 @@ class LibraryKind(Enum):
 
 @dataclass
 class LibraryConfig:
-    """
-    - For pypi the PYPI library name and version
-    - For whl: the file path to the library (absolute i.e) with s3:xxx or dbfs:/xxx
-    Version should include the >=1.1.1 in case a specific version (range) or == if a specific version should be used
+    """Configuration for a Python library dependency.
+
+    - For pypi: The PyPI library name and version.
+    - For whl: The file path to the library (e.g., s3://... or dbfs:/...).
+
+    Version specifiers should be included (e.g., `>=1.1.1` for a range or `==2.0.0` for a specific version).
     """
 
     kind: LibraryKind

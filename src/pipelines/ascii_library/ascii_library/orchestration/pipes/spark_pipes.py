@@ -1,8 +1,3 @@
-# ruff: noqa: E402
-# import warnings
-# import dagster as dg
-# warnings.filterwarnings("ignore", category=dg.ExperimentalWarning)
-
 import os
 
 from botocore.config import Config
@@ -12,22 +7,20 @@ from ascii_library.orchestration.pipes import Engine, ExecutionMode
 
 
 class SparkPipesResource(ConfigurableResource):  # type: ignore
-    """
-    Generic configurable spark-pipes resource which executes either in:
+    """Generic configurable spark-pipes resource which executes either in:
+    - `local` mode for quick local development
+    - `databricks` mode for scalable execution
 
-    - local mode for quick local development
-    - databricks mode for scalable execution
+    Additionally, pipelines may apply a sampling function to avoid waiting
+    until petabytes of data are processed for quick end-to-end results.
 
-    Additionally, pipelines may apply a sampling function to avoid waiting until PBs of data are processed for quick E2E results.
-
-    In the case of databricks execution mode the following environment variables have to be set in order to authenticate with DB
-
+    In the case of Databricks execution mode the following environment
+    variables must be set to authenticate with Databricks:
     - `DATABRICKS_HOST`
     - `DATABRICKS_CLIENT_ID`
     - `DATABRICKS_CLIENT_SECRET`
 
     For EMR mode:
-
     - `ASCII_AWS_ACCESS_KEY_ID`
     - `ASCII_AWS_SECRET_ACCESS_KEY`
     """

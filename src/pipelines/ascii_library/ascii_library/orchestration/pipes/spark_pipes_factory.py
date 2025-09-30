@@ -303,10 +303,20 @@ def spark_pipes_asset_factory(  # noqa: C901
 
 
 class BaseConfig(Config):
+    """Runtime knobs for Spark pipes.
+
+    Fields:
+      - ``spot_bid_price_percent``: percent of on-demand price to pay for spot (1–100).
+      - ``override_default_engine``: override engine. One of ``pyspark``, ``emr``, ``databricks``.
+    """
+
     spot_bid_price_percent: Optional[int] = Field(  # pyrefly: ignore
-        default=90, description="percentage of instance to pay", gt=1, le=100
+        default=90,
+        description="Percent of on-demand price to pay (1–100).",
+        gt=1,
+        le=100,
     )
     override_default_engine: Optional[str] = Field(
         default=None,
-        description="Type of engine to use, valid options are 'pyspark', 'emr', 'databricks'",
+        description="Override engine: 'pyspark', 'emr', or 'databricks'.",
     )
