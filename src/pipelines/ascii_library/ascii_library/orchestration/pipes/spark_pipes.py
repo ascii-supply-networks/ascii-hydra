@@ -7,22 +7,32 @@ from ascii_library.orchestration.pipes import Engine, ExecutionMode
 
 
 class SparkPipesResource(ConfigurableResource):  # type: ignore
-    """Generic configurable spark-pipes resource which executes either in:
-    - `local` mode for quick local development
-    - `databricks` mode for scalable execution
+    r"""
+    Generic configurable spark-pipes resource.
 
-    Additionally, pipelines may apply a sampling function to avoid waiting
-    until petabytes of data are processed for quick end-to-end results.
+    Executes jobs in one of several modes: ``local`` for quick development,
+    or on scalable cloud backends like ``databricks`` and ``emr``.
+    Pipelines may optionally apply sampling to speed up end-to-end runs.
 
-    In the case of Databricks execution mode the following environment
-    variables must be set to authenticate with Databricks:
-    - `DATABRICKS_HOST`
-    - `DATABRICKS_CLIENT_ID`
-    - `DATABRICKS_CLIENT_SECRET`
+    **Databricks authentication (environment variables)**
 
-    For EMR mode:
-    - `ASCII_AWS_ACCESS_KEY_ID`
-    - `ASCII_AWS_SECRET_ACCESS_KEY`
+    .. code-block:: text
+
+       DATABRICKS_HOST
+       DATABRICKS_CLIENT_ID
+       DATABRICKS_CLIENT_SECRET
+
+    **EMR credentials (environment variables)**
+
+    .. code-block:: text
+
+       ASCII_AWS_ACCESS_KEY_ID
+       ASCII_AWS_SECRET_ACCESS_KEY
+
+    :ivar engine: The default execution engine to use.
+    :vartype engine: Engine
+    :ivar execution_mode: The execution mode for the pipeline (e.g. ``debug``, ``prod``).
+    :vartype execution_mode: ExecutionMode
     """
 
     engine: Engine

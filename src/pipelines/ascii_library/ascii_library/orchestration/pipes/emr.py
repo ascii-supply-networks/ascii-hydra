@@ -41,7 +41,7 @@ class _PipesEmrClient(_PipesBaseCloudClient):
 
     Args:
         emr_job_runner (EmrJobRunner): An instance of EmrJobRunner.
-        env (Optional[Mapping[str,str]]): An optional dict of environment variables to pass to the EMR job.
+        env (Optional[Mapping[str, str]]): An optional dict of environment variables to pass to the EMR job.
         context_injector (Optional[PipesContextInjector]): A context injector to use to inject context into the EMR process.
         message_reader (Optional[PipesMessageReader]): A message reader to use to read messages from the EMR job.
         poll_interval_seconds (float): How long to sleep between checking the status of the job run.
@@ -342,7 +342,6 @@ class _PipesEmrClient(_PipesBaseCloudClient):
 
     def run(  # noqa: C901 # type: ignore
         self,
-        *,
         context: OpExecutionContext,
         emr_job_config: dict,
         step_config,  # Change from 'dict' to 'StepConfigTypeDef'
