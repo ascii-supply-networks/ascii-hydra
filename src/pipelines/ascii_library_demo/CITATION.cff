@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+
+message: "If you use this software in your work, please cite it using the metadata below."
+title: "ASCII Hydra"
+version: "V1.0.0"
+
+doi: "10.5281/zenodo.15310252"
+
+date-released: 2025-04-30
+
+authors:
+  - family-names: "Picatto"
+    given-names: "Hernan"
+    orcid: "0000-0001-6662-464X"
+  - family-names: "Heiler"
+    given-names: "Georg"
+    orcid: "0000-0002-8684-1163"
+  - family-names: "Klimek"
+    given-names: "Peter"
+
+
+repository-code: "https://github.com/ascii-supply-networks/ascii-hydra"
+license: "GPL-3.0-only"
+
+abstract: "ASCII Hydra provides a framework for executing PySpark data pipelines flexibly across different environments (local, AWS EMR, Databricks), serving as a cost-efficient alternative to vendor lock-in for Spark workflows."
+keywords:
+  - "pyspark"
+  - "apache-spark"
+  - "data-pipeline"
+  - "aws-emr"
+  - "databricks"
+  - "workflow"
+  - "reproducibility"
+  - "software"

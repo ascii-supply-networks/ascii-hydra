@@ -1,7 +1,7 @@
 .PHONY: test
 test:
 ## Run the test suite using the 'testing' environment defined in pixi.
-	pixi run -e testing test
+	pixi run -e example test
 
 .PHONY: fmt
 fmt:
@@ -12,7 +12,7 @@ fmt:
 .PHONY: lint
 lint:
 ## Lint the codebase by executing the linting command through pixi.
-	pixi run -e lint lint
+	pixi run -e ci lint
 
 
 start:

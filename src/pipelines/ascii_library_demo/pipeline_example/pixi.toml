@@ -1,5 +1,5 @@
 [dependencies]
-python = ">=3.11, <3.12"
+python = ">=3.12, <3.15"
 pip = ">=24.2"
 
 [environments]
@@ -7,45 +7,43 @@ ci = { features = ["ci"], solve-group = "ci" }
 example = { features = ["ci", "example"], solve-group = "example" }
 
 [feature.ci.dependencies]
-pytest = ">=8.3.3,<9"
-pytest-mock = ">=3.14.0,<4"
-pytest-cov = ">=5.0.0,<6"
-ruff = ">=0.5.7,<1"
-yamllint = ">=1.35.1,<2"
-taplo = ">=0.9.3,<0.10"
-nodejs = ">=20.8.1,<23"
+pytest = ">=8.4.2,<9"
+pytest-mock = ">=3.15.0,<4"
+pytest-cov = "~=7"
+ruff = ">=0.13.0,<1"
+yamllint = ">=1.37.1,<2"
+taplo = ">=0.10,<0.11"
+nodejs = ">=20.8.1,<25"
 
 [feature.ci.pypi-dependencies]
-moto = "~=5.0.14"
+moto = "~=5.1.2"
 nbqa = "~=1.9.0"
-pandas-stubs = "~=2.2.2.240909"
-pyright = "~=1.1.398"
-mypy-boto3-resourcegroupstaggingapi = "~=1.35.26"
+pandas-stubs = "~=2.3.2.250827"
+pyrefly = ">=0.27.2,<1"
+mypy-boto3-resourcegroupstaggingapi = "~=1.40.17"
 
 [feature.example.dependencies]
 grpcio = "*"
 grpcio-tools = "*"
-pyspark = "~=3.5.3"
-openjdk = "~=17.0.11"
-fsspec = ">=2024.9.0"
-s3fs = ">=2024.9.0"
-dagster = ">=1.10.0,<1.11"
-dagster-webserver = ">=1.10.0,<1.11"
-dagster-pipes = ">=1.10.0,<1.11"
+pyspark = "~=3.5.5"
+openjdk = "~=17.0.15"
+fsspec = ">=2025.9.0"
+s3fs = ">=2025.9.0"
+dagster = ">=1.11.10,<1.12"
+dagster-webserver = ">=1.11.10,<1.12"
+dagster-pipes = ">=1.11.10,<1.12"
 
 [feature.example.pypi-dependencies]
-tenacity = ">=9.0.0,<10"
-dagster-shared = ">=0.26.0,<0.27"
-dagster-aws = ">=0.26.0,<0.27"
-dagster-pyspark = ">=0.26.0,<0.27"
-dagster-databricks = ">=0.26.0,<0.27"
+tenacity = ">=9.1.2,<10"
+dagster-aws = ">=0.27.10,<0.28"
+dagster-pyspark = ">=0.27.10,<0.28"
+dagster-databricks = ">=0.27.10,<0.28"
 
-delta-spark = "~=3.2.1"
-deltalake = ">=0.22.3,<0.23"
-build = "~=1.2.2"
-databricks-sdk = ">=0.8,<0.33"
-ascii_library = { path = "src/pipelines/ascii_library", editable = true }
-pipeline_example = { path = "src/pipelines/ascii_library_demo/pipeline_example", editable = true }
+delta-spark = "~=3.3.2"
+deltalake = "~=1.1.4"
+build = "~=1.3.0"
+databricks-sdk = ">=0.41,<0.67"
+ascii_library = "*"             # if you want to compile instead of install last stable version { path = "src/pipelines/ascii_library", editable = true }
 
 
 [project]
@@ -59,24 +57,25 @@ authors = [
 platforms = ["linux-64", "osx-arm64"]
 channels = ["conda-forge"]
 
-[tasks]
-clean_all_environments = { cmd = "rm -rf .pixi/envs" }
+[feature.ci.tasks.clean_all_environments]
+cmd = "rm -rf .pixi/envs"
+description = "remove environments"
 
-[tasks.lint]
-cmd = "ruff check . && taplo check && pyright"
-description = "Validate formatting and type check python files"
+[feature.ci.tasks.lint]
+cmd = "ruff check ./src/pipelines && taplo check"
+description = "Lint the basics"
 
-[tasks.test]
+[feature.example.tasks.test]
 cmd = "pytest --cov --cov-report=term-missing ."
 description = "Unittests"
 
 [feature.example.tasks.start]
 cwd = "src/pipelines/ascii_library_demo/pipeline_example"
-cmd = "dagster dev"
+cmd = "dagster dev -m pipeline_example"
 description = "start dagster webserver UI"
 
 [feature.ci.tasks.fmt]
-cmd = "ruff check --fix . && taplo fmt"
+cmd = "ruff format ./src && ruff check --fix ./src/pipelines && taplo fmt"
 description = "Format python files"
 env = { RUST_LOG = "warn" }
 

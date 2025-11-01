@@ -51,7 +51,7 @@ def get_emr_cluster_config(
     job_role: str = job_role,
     additional_master_security_groups: Optional[list[str]] = None,
     additional_slave_security_groups: Optional[list[str]] = None,
-    ssh: str = "emr_key",
+    ssh: str = "emr_key_v2",
     name: Optional[str] = "unnamed",
     group: Optional[Sequence[CloudInstanceConfig]] = None,
     fleet: Optional[Sequence[CloudInstanceConfig]] = None,
@@ -74,8 +74,11 @@ def get_emr_cluster_config(
             "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog",
             # "spark.databricks.delta.schema.autoMerge.enabled": "True",
             "spark.databricks.delta.schema.autoMerge.enabledOnWrite": "True",
-            "spark.repositories": "https://repo1.maven.org/maven2/",
-            "spark.jars.packages": "io.delta:delta-spark_2.12:3.2.0,org.apache.hadoop:hadoop-aws:3.3.4,org.apache.spark:spark-hadoop-cloud_2.12:3.5.0,com.johnsnowlabs.nlp:spark-nlp_2.12:5.3.3",
+            "spark.jars.repositories": "https://repo1.maven.org/maven2/",
+            # "spark.jars.packages": "io.delta:delta-spark_2.12:3.3.2,org.apache.hadoop:hadoop-aws:3.3.4,org.apache.spark:spark-hadoop-cloud_2.12:3.5.0,com.johnsnowlabs.nlp:spark-nlp_2.12:5.3.3",
+            # "spark.jars.packages": "io.delta:delta-spark_2.12:3.3.2,org.postgresql:postgresql:42.7.7,org.apache.hadoop:hadoop-aws:3.3.6,org.apache.spark:spark-hadoop-cloud_2.12:3.5.6,com.johnsnowlabs.nlp:spark-nlp_2.12:6.1.3",
+            # AI Tells me that delta/storage jars should be there by default - lets try without them
+            "spark.jars.packages": "org.postgresql:postgresql:42.7.7,com.johnsnowlabs.nlp:spark-nlp_2.12:6.1.3",
             "spark.hadoop.fs.s3a.s3guard.ddb.region": "us-east-1",
             "spark.submit.deployMode": "cluster",
             # not needed, these paramters are DIRECTLY managed by the compute provider by selecting an instance type
@@ -159,11 +162,11 @@ def get_emr_cluster_config(
     }
     if group is not None:
         computeLimits["UnitType"] = "Instances"  # type: ignore
-        instances["InstanceGroups"] = group
+        instances["InstanceGroups"] = group  # pyrefly: ignore
         basic["AutoScalingRole"] = "EMR_AutoScaling_DefaultRole"
     elif fleet is not None:
         computeLimits["UnitType"] = "InstanceFleetUnits"  # type: ignore
-        instances["InstanceFleets"] = fleet
+        instances["InstanceFleets"] = fleet  # pyrefly: ignore
     basic["ManagedScalingPolicy"] = {"ComputeLimits": computeLimits}  # type: ignore
     basic["Instances"] = instances  # type: ignore
     return basic

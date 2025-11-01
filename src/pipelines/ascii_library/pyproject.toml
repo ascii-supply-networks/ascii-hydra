@@ -11,7 +11,12 @@ authors = [
   { name = "Hernan Picatto", email = "hernan.picatto@ascii.ac.at" },
 ]
 license = { text = "MIT" } # Or another license identifier
-dependencies = ["dagster>=1.10.0,<1.11", "dagster-pipes>=1.10.0,<1.11", "boto3"]
+requires-python = ">=3.9"
+dependencies = [
+  "dagster>=1.11.10,<1.12",
+  "dagster-pipes>=1.11.10,<1.12",
+  "boto3",
+]
 
 [project.optional-dependencies]
 
@@ -21,3 +26,17 @@ repository = "https://github.com/ascii-supply-networks/research-space/tree/main/
 
 [tool.setuptools.packages.find]
 exclude = ["ascii_library_tests"]
+
+[tool.pyrefly]
+project-includes = ["."]
+project-excludes = [
+  "**/build/**",
+  "**/.ruff_cache/**",
+  "**/.pixi/**",
+  "**/dist/**",
+]
+
+search-path = ["."]
+python-version = "3.11.13"
+
+python-interpreter = "${PIXI_PROJECT_ROOT}/.pixi/envs/pipeline-remote-dev/bin/python3.11"

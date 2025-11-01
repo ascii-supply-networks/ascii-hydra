@@ -245,7 +245,7 @@ class CloudInstanceConfig:
                 "CapacityReservationOptions": {"CapacityReservationPreference": "open"},
             }
 
-        launchSpecifications["SpotSpecification"] = {
+        launchSpecifications["SpotSpecification"] = {  # pyrefly: ignore
             "AllocationStrategy": "capacity-optimized",
             "TimeoutAction": "SWITCH_TO_ON_DEMAND",
             "TimeoutDurationMinutes": 5,

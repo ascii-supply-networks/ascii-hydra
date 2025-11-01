@@ -10,6 +10,7 @@ from dagster import (
     PartitionsDefinition,
     PipesSubprocessClient,
     asset,
+    get_dagster_logger,
 )
 from databricks.sdk.service import jobs
 from pydantic import Field
@@ -24,7 +25,7 @@ from ascii_library.orchestration.pipes.emr import PipesEmrEnhancedClient
 from ascii_library.orchestration.pipes.instance_config import CloudInstanceConfig
 from ascii_library.orchestration.pipes.spark_pipes import Engine, SparkPipesResource
 from ascii_library.orchestration.resources.emr_constants import pipeline_bucket
-from ascii_library.orchestration.resources.utils import (
+from ascii_library.utils.determine_env import (
     get_dagster_deployment_environment,
 )
 
@@ -224,7 +225,7 @@ def spark_pipes_asset_factory(  # noqa: C901
             libraries=engine_specific_libs,
             extras=client_params,
             fleet_config=fleet_filters,
-        ).get_materialize_result()
+        ).get_results()
 
     def handle_databricks(
         client_params, context, client: PipesDatabricksEnhancedClient
@@ -245,6 +246,10 @@ def spark_pipes_asset_factory(  # noqa: C901
             databricks_cluster_config["spot_bid_price_percent"] = client_params[  # type: ignore
                 "config"
             ]["spot_bid_price_percent"]
+            databricks_cluster_config["cluster_log_conf"] = {  # type: ignore
+                "dbfs": {"destination": "dbfs:/cluster-logs/dagster"}
+            }  # type: ignore
+            get_dagster_logger().debug(databricks_cluster_config)
         task = jobs.SubmitTask.from_dict(
             {
                 "new_cluster": databricks_cluster_config,
@@ -266,16 +271,16 @@ def spark_pipes_asset_factory(  # noqa: C901
             libraries_to_build_and_upload=libraries_to_build_and_upload,  # type: ignore
             local_file_path=external_script_file,
             dbfs_path=script_file_path_after_upload,
-        ).get_materialize_result()
+        ).get_results()
 
     def handle_local(client_params, context, client: PipesSubprocessClient):
         cmd = [shutil.which("python"), external_script_file]
         client_params["local_spark_config"] = local_spark_config
         return client.run(  # type: ignore
-            command=cmd,
+            command=cmd,  # pyrefly: ignore
             context=context,
             extras=client_params,
-        ).get_materialize_result()
+        ).get_results()
 
     def handle_shared_parameters(context, cfg):
         client_params = {
@@ -287,7 +292,7 @@ def spark_pipes_asset_factory(  # noqa: C901
             client_params["partition_key"] = context.partition_key
             job_name = f"{name}_{deployment_env}_{spark_pipes_client.execution_mode.value}_{context.partition_key}"
         else:
-            client_params["partition_key"] = None
+            client_params["partition_key"] = None  # pyrefly: ignore
             job_name = (
                 f"{name}_{spark_pipes_client.execution_mode.value}_{deployment_env}"
             )
@@ -298,10 +303,20 @@ def spark_pipes_asset_factory(  # noqa: C901
 
 
 class BaseConfig(Config):
-    spot_bid_price_percent: Optional[int] = Field(
-        default=90, description="percentage of instance to pay", gt=1, le=100
+    """Runtime knobs for Spark pipes.
+
+    Fields:
+      - ``spot_bid_price_percent``: percent of on-demand price to pay for spot (1–100).
+      - ``override_default_engine``: override engine. One of ``pyspark``, ``emr``, ``databricks``.
+    """
+
+    spot_bid_price_percent: Optional[int] = Field(  # pyrefly: ignore
+        default=90,
+        description="Percent of on-demand price to pay (1–100).",
+        gt=1,
+        le=100,
     )
     override_default_engine: Optional[str] = Field(
         default=None,
-        description="Type of engine to use, valid options are 'pyspark', 'emr', 'databricks'",
+        description="Override engine: 'pyspark', 'emr', or 'databricks'.",
     )

@@ -1,8 +1,3 @@
-# ruff: noqa: E402
-# import warnings
-# import dagster as dg
-# warnings.filterwarnings("ignore", category=dg.ExperimentalWarning)
-
 import os
 
 from botocore.config import Config
@@ -12,24 +7,32 @@ from ascii_library.orchestration.pipes import Engine, ExecutionMode
 
 
 class SparkPipesResource(ConfigurableResource):  # type: ignore
-    """
-    Generic configurable spark-pipes resource which executes either in:
+    r"""
+    Generic configurable spark-pipes resource.
 
-    - local mode for quick local development
-    - databricks mode for scalable execution
+    Executes jobs in one of several modes: ``local`` for quick development,
+    or on scalable cloud backends like ``databricks`` and ``emr``.
+    Pipelines may optionally apply sampling to speed up end-to-end runs.
 
-    Additionally, pipelines may apply a sampling function to avoid waiting until PBs of data are processed for quick E2E results.
+    **Databricks authentication (environment variables)**
 
-    In the case of databricks execution mode the following environment variables have to be set in order to authenticate with DB
+    .. code-block:: text
 
-    - `DATABRICKS_HOST`
-    - `DATABRICKS_CLIENT_ID`
-    - `DATABRICKS_CLIENT_SECRET`
+       DATABRICKS_HOST
+       DATABRICKS_CLIENT_ID
+       DATABRICKS_CLIENT_SECRET
 
-    For EMR mode:
+    **EMR credentials (environment variables)**
 
-    - `ASCII_AWS_ACCESS_KEY_ID`
-    - `ASCII_AWS_SECRET_ACCESS_KEY`
+    .. code-block:: text
+
+       ASCII_AWS_ACCESS_KEY_ID
+       ASCII_AWS_SECRET_ACCESS_KEY
+
+    :ivar engine: The default execution engine to use.
+    :vartype engine: Engine
+    :ivar execution_mode: The execution mode for the pipeline (e.g. ``debug``, ``prod``).
+    :vartype execution_mode: ExecutionMode
     """
 
     engine: Engine
@@ -59,6 +62,12 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
                 client_id=os.environ.get("DATABRICKS_CLIENT_ID", "dummy"),
                 client_secret=os.environ.get("DATABRICKS_CLIENT_SECRET", "dummy"),
             )
+            s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                region_name="us-east-1",
+            )
             tagging_client = boto3.client(
                 "resourcegroupstaggingapi",
                 aws_access_key_id=aws_access_key_id,
@@ -68,6 +77,7 @@ class SparkPipesResource(ConfigurableResource):  # type: ignore
             return PipesDatabricksEnhancedClient(
                 client=workspace_client,
                 tagging_client=tagging_client,
+                s3_client=s3_client,
             )
         elif engine_to_use == Engine.EMR:
             import boto3

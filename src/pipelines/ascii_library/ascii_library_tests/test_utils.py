@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,37 +11,38 @@ from ascii_library.orchestration.pipes.utils import (
     library_to_cloud_paths,
     package_library,
 )
-from ascii_library.orchestration.resources.utils import (
+from ascii_library.utils.determine_env import (
     get_dagster_deployment_environment,
 )
 
-#######
-# get_dagster_deployment_environment
-#######
+PKG_ROOT = "src/pipelines/ascii_library/ascii_library"
+ABS_PKG_ROOT = str(Path(PKG_ROOT).resolve())
+DIST_DIR = f"{PKG_ROOT}/dist"
+ABS_DIST_DIR = str(Path(DIST_DIR).resolve())
 
 
 def test_get_dagster_deployment_environment_set():
-    with patch.dict("os.environ", {"DAGSTER_DEPLOYMENT": "production"}):
+    with patch.dict("os.environ", {"DAGSTER_DEPLOYMENT": "prod"}):
         result = get_dagster_deployment_environment()
-        assert result == "production"
+        assert result == "PROD"
 
 
 def test_get_dagster_deployment_environment_not_set():
     with patch.dict("os.environ", {}, clear=True):
         result = get_dagster_deployment_environment()
-        assert result == "dev"
+        assert result == "BRANCH"
 
 
 def test_get_dagster_deployment_environment_with_custom_key():
-    with patch.dict("os.environ", {"CUSTOM_DEPLOYMENT": "staging"}):
+    with patch.dict("os.environ", {"CUSTOM_DEPLOYMENT": "dev"}):
         result = get_dagster_deployment_environment(deployment_key="CUSTOM_DEPLOYMENT")
-        assert result == "staging"
+        assert result == "BRANCH"
 
 
 def test_get_dagster_deployment_environment_with_default_value():
     with patch.dict("os.environ", {}, clear=True):
-        result = get_dagster_deployment_environment(default_value="testing")
-        assert result == "testing"
+        result = get_dagster_deployment_environment(default_value="dev")
+        assert result == "BRANCH"
 
 
 #######
@@ -50,12 +52,12 @@ def test_get_dagster_deployment_environment_with_default_value():
 
 def test_library_to_cloud_paths_dbfs():
     result = library_to_cloud_paths("random_lib", "dbfs")
-    assert result == "dbfs:/customlibs/dev/random_lib-0.0.0-py3-none-any.whl"
+    assert result == "dbfs:/customlibs/BRANCH/random_lib-0.0.0-py3-none-any.whl"
 
 
 def test_library_to_cloud_paths_non_dbfs():
     result = library_to_cloud_paths("random_lib", "s3")
-    assert result == "customlibs/dev/random_lib-0.0.0-py3-none-any.whl"
+    assert result == "customlibs/BRANCH/random_lib-0.0.0-py3-none-any.whl"
 
 
 #######
@@ -75,76 +77,79 @@ def test_library_from_dbfs_paths():
 #######
 
 
+@patch("ascii_library.orchestration.pipes.utils.Path.mkdir", autospec=True)
 @patch("os.path.exists")
 @patch("glob.glob")
 @patch("os.makedirs")
 @patch("subprocess.check_call")
 @patch("os.remove")
 def test_package_library(
-    mock_remove, mock_check_call, mock_makedirs, mock_glob, mock_exists
+    mock_remove, mock_check_call, mock_makedirs, mock_glob, mock_exists, mock_path_mkdir
 ):
+    mock_path_mkdir.return_value = None
     mock_exists.return_value = True
-    mock_glob.return_value = ["/ascii/library/dist/mylib-0.0.0-py3-none-any.whl"]
+    mock_glob.return_value = [f"{ABS_DIST_DIR}/mylib-0.0.0-py3-none-any.whl"]
 
-    result = package_library("/ascii/library")
+    result = package_library(PKG_ROOT)
 
     mock_check_call.assert_called_once_with(
-        ["python", "-m", "build", "--wheel", "--outdir", "/ascii/library/dist"],
-        cwd="/ascii/library",
+        ["python", "-m", "build", "--wheel", "--outdir", ABS_DIST_DIR],
+        cwd=ABS_PKG_ROOT,
     )
     assert result == (
-        "/ascii/library/dist/mylib-0.0.0-py3-none-any.whl",
+        f"{ABS_DIST_DIR}/mylib-0.0.0-py3-none-any.whl",
         "mylib-0.0.0-py3-none-any.whl",
     )
 
 
+@patch("ascii_library.orchestration.pipes.utils.Path.mkdir", autospec=True)
 @patch("os.path.exists")
 @patch("glob.glob")
 @patch("os.makedirs")
 @patch("subprocess.check_call")
 @patch("os.remove")
 def test_package_library_dist_not_exists(
-    mock_remove, mock_check_call, mock_makedirs, mock_glob, mock_exists
+    mock_remove, mock_check_call, mock_makedirs, mock_glob, mock_exists, mock_path_mkdir
 ):
-    mock_exists.side_effect = lambda path: (
-        False if path == "/ascii/library/dist" else True
-    )
-    mock_glob.return_value = ["/ascii/library/dist/mylib-0.0.0-py3-none-any.whl"]
+    mock_path_mkdir.return_value = None
+    mock_exists.side_effect = lambda path: (False if path == ABS_DIST_DIR else True)
+    mock_glob.return_value = [f"{ABS_DIST_DIR}/mylib-0.0.0-py3-none-any.whl"]
 
-    result = package_library("/ascii/library")
+    result = package_library(PKG_ROOT)
 
     mock_check_call.assert_called_once_with(
-        ["python", "-m", "build", "--wheel", "--outdir", "/ascii/library/dist"],
-        cwd="/ascii/library",
+        ["python", "-m", "build", "--wheel", "--outdir", ABS_DIST_DIR],
+        cwd=ABS_PKG_ROOT,
     )
     assert result == (
-        "/ascii/library/dist/mylib-0.0.0-py3-none-any.whl",
+        f"{ABS_DIST_DIR}/mylib-0.0.0-py3-none-any.whl",
         "mylib-0.0.0-py3-none-any.whl",
     )
 
-    # Ensure that makedirs is called when the directory does not exist
-    mock_makedirs.assert_called_once_with("/ascii/library/dist")
+    mock_makedirs.assert_called_once_with(ABS_DIST_DIR)
 
 
+@patch("ascii_library.orchestration.pipes.utils.Path.mkdir", autospec=True)
 @patch("os.path.exists")
 @patch("glob.glob")
 @patch("os.makedirs")
 @patch("subprocess.check_call")
 @patch("os.remove")
 def test_package_library_no_wheel_found(
-    mock_remove, mock_check_call, mock_makedirs, mock_glob, mock_exists
+    mock_remove, mock_check_call, mock_makedirs, mock_glob, mock_exists, mock_path_mkdir
 ):
+    mock_path_mkdir.return_value = None
     mock_exists.return_value = True
     mock_glob.return_value = []
 
     with pytest.raises(
         FileNotFoundError, match="No wheel file found in the dist directory."
     ):
-        package_library("/ascii/library")
+        package_library(PKG_ROOT)
 
     mock_check_call.assert_called_once_with(
-        ["python", "-m", "build", "--wheel", "--outdir", "/ascii/library/dist"],
-        cwd="/ascii/library",
+        ["python", "-m", "build", "--wheel", "--outdir", ABS_DIST_DIR],
+        cwd=ABS_PKG_ROOT,
     )
 
 

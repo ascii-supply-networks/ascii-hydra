@@ -29,20 +29,23 @@ from ascii_library.orchestration.pipes.exceptions import CustomPipesException
 
 
 class _PipesDatabricksClient(_PipesBaseCloudClient):
-    """Pipes client for databricks.
+    """Pipes client for Databricks.
 
-    Args:
-        client (WorkspaceClient): A databricks `WorkspaceClient` object.
-        env (Optional[Mapping[str,str]]: An optional dict of environment variables to pass to the
-            databricks job.
-        context_injector (Optional[PipesContextInjector]): A context injector to use to inject
-            context into the k8s container process. Defaults to :py:class:`PipesDbfsContextInjector`.
-        message_reader (Optional[PipesMessageReader]): A message reader to use to read messages
-            from the databricks job. Defaults to :py:class:`PipesDbfsMessageReader`.
-        poll_interval_seconds (float): How long to sleep between checking the status of the job run.
-            Defaults to 5.
-        forward_termination (bool): Whether to cancel the Databricks job if the orchestration process
-            is interrupted or canceled. Defaults to True.
+    :param client: A Databricks ``WorkspaceClient`` object.
+    :type client: WorkspaceClient
+    :param tagging_client: A Boto3 client for resource tagging.
+    :type tagging_client: ResourceGroupsTaggingAPIClient
+    :param context_injector: A context injector to use to inject context into the
+        Databricks job. Defaults to a configured ``PipesDbfsContextInjector``.
+    :type context_injector: Optional[PipesContextInjector]
+    :param message_reader: A message reader to use to read messages from the
+        Databricks job. Defaults to a configured ``PipesDbfsMessageReader``.
+    :type message_reader: Optional[PipesMessageReader]
+    :param forward_termination: If True, the Databricks job will be canceled if the
+        orchestration process is interrupted. Defaults to True.
+    :type forward_termination: bool
+    :param kwargs: Additional keyword arguments.
+    :type kwargs: Any
     """
 
     env: Optional[Mapping[str, str]] = Field(
@@ -57,6 +60,7 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
         context_injector: Optional[PipesContextInjector] = None,
         message_reader: Optional[PipesMessageReader] = None,
         forward_termination: bool = True,
+        **kwargs,
     ):
         super().__init__(
             main_client=client,
@@ -64,6 +68,8 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
             message_reader=message_reader,
             tagging_client=tagging_client,
         )
+        self._s3_client = kwargs.get("s3_client")
+        self._tagging_client = tagging_client
         self.client = client
         self.context_injector = opt_inst_param(
             context_injector,
@@ -154,33 +160,38 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
 
     def run(  # type: ignore
         self,
-        *,
-        env: Optional[Mapping[str, str]] = None,
+        env: Optional[Mapping[str, str]],
         context: OpExecutionContext,
-        extras: Optional[PipesExtras] = None,
+        extras: Optional[PipesExtras],
         task: jobs.SubmitTask,
-        submit_args: Optional[Mapping[str, str]] = None,
+        submit_args: Optional[Mapping[str, str]],
         local_file_path: str,
         dbfs_path: str,
         libraries_to_build_and_upload: Optional[List[str]] = None,
     ) -> PipesClientCompletedInvocation:
         """Synchronously execute a Databricks job with the pipes protocol.
 
-        Args:
-            task (databricks.sdk.service.jobs.SubmitTask): Specification of the databricks
-                task to run. Environment variables used by dagster-pipes will be set under the
-                `spark_env_vars` key of the `new_cluster` field (if there is an existing dictionary
-                here, the EXT environment variables will be merged in). Everything else will be
-                passed unaltered under the `tasks` arg to `WorkspaceClient.jobs.submit`.
-            context (OpExecutionContext): The context from the executing op or asset.
-            extras (Optional[PipesExtras]): An optional dict of extra parameters to pass to the
-                subprocess.
-            submit_args (Optional[Mapping[str, str]]): Additional keyword arguments that will be
-                forwarded as-is to `WorkspaceClient.jobs.submit`.
+        :param env: An optional dict of environment variables to pass.
+        :type env: Optional[Mapping[str, str]]
+        :param context: The context from the executing op or asset.
+        :type context: OpExecutionContext
+        :param extras: An optional dict of extra parameters to pass to the subprocess.
+        :type extras: Optional[PipesExtras]
+        :param task: Specification of the Databricks task to run.
+        :type task: databricks.sdk.service.jobs.SubmitTask
+        :param submit_args: Additional keyword arguments that will be forwarded
+                            as-is to ``WorkspaceClient.jobs.submit``.
+        :type submit_args: Optional[Mapping[str, str]]
+        :param local_file_path: The local path to the script to be executed.
+        :type local_file_path: str
+        :param dbfs_path: The corresponding path on DBFS where the script will be uploaded.
+        :type dbfs_path: str
+        :param libraries_to_build_and_upload: A list of local Python packages to build
+                                            and upload as libraries.
+        :type libraries_to_build_and_upload: Optional[List[str]]
 
-        Returns:
-            PipesClientCompletedInvocation: Wrapper containing results reported by the external
-                process.
+        :return: Wrapper containing results reported by the external process.
+        :rtype: PipesClientCompletedInvocation
         """
         self._prepare_environment(
             local_file_path, dbfs_path, libraries_to_build_and_upload
@@ -207,11 +218,12 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
                 **ascii_wandb_value,
             }
             task = jobs.SubmitTask.from_dict(submit_task_dict)
-            run_id = self.client.jobs.submit(
+            submission = self.client.jobs.submit(
                 run_name=extras.get("job_name"),  # type: ignore
                 tasks=[task],
                 **(submit_kwargs or {}),
-            ).bind()["run_id"]
+            )
+            run_id = submission.run_id
             context.log.info(
                 f"Databricks url: {self.client.jobs.get_run(run_id).run_page_url}"
             )
@@ -225,7 +237,7 @@ class _PipesDatabricksClient(_PipesBaseCloudClient):
                         "[pipes] execution interrupted, canceling Databricks job."
                     )
                     self.client.jobs.cancel_run(run_id)
-                    self._poll_til_terminating(run_id)
+                    self._poll_til_terminating(str(run_id))
                 raise
         return PipesClientCompletedInvocation(pipes_session)
 

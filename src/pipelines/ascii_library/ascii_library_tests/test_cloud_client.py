@@ -31,7 +31,7 @@ from tenacity import (
 
 
 class NonAbstractPipesCloudClient(_PipesBaseCloudClient):
-    def run(self):
+    def run(self):  # pyrefly: ignore
         pass
 
     @retry(
@@ -41,7 +41,7 @@ class NonAbstractPipesCloudClient(_PipesBaseCloudClient):
         retry=retry_if_exception_type(DatabricksError),
     )
     def _retrieve_state_dbr(self, run_id):
-        return self.main_client.jobs.get_run(run_id)
+        return self.main_client.jobs.get_run(run_id)  # pyrefly: ignore
 
 
 class MockRetrying(BaseRetrying):
@@ -252,7 +252,7 @@ def test_log_transition_state(mock_get_dagster_logger, mock_emr_client):
         }
     )
     client = NonAbstractPipesCloudClient(main_client=mock_emr_client)
-    client.last_observed_state = "STARTING"
+    client.last_observed_state = "STARTING"  # pyrefly: ignore
     result = client._handle_emr_polling(cluster_id="example_cluster_id")
     assert result is True
     assert client.last_observed_state == "RUNNING"
@@ -273,14 +273,17 @@ def test_handle_emr_polling_terminated_state(mock_get_dagster_logger, mock_emr_c
             "Cluster": {
                 "Status": {
                     "State": "TERMINATED",
-                    "StateChangeReason": {"Message": "Job flow completed successfully"},
+                    "StateChangeReason": {
+                        "Message": "Job flow completed successfully",
+                        "Code": "ALL_STEPS_COMPLETED",
+                    },
                 },
                 "MasterPublicDnsName": "example-dns",
             }
         }
     )
     client = NonAbstractPipesCloudClient(main_client=mock_emr_client)
-    client.last_observed_state = "RUNNING"
+    client.last_observed_state = "RUNNING"  # pyrefly: ignore
     result = client._handle_emr_polling(cluster_id="example_cluster_id")
     assert result is False
     assert client.last_observed_state == "TERMINATED"
@@ -309,13 +312,14 @@ def test_handle_emr_polling_terminated_with_errors_state(
         }
     )
     client = NonAbstractPipesCloudClient(main_client=mock_emr_client)
-    client.last_observed_state = "RUNNING"
+    client.last_observed_state = "RUNNING"  # pyrefly: ignore
     with pytest.raises(
         CustomPipesException,
-        match=re.escape("Error running EMR job flow: example_cluster_id"),
-    ) as exc_info:
+        match=re.escape(
+            "EMR job example_cluster_id failed: [] Job flow terminated with errors"
+        ),
+    ):
         client._handle_emr_polling(cluster_id="example_cluster_id")
-    assert "Error running EMR job flow: example_cluster_id" in str(exc_info.value)
     mock_logger.info.assert_any_call(
         "[pipes] EMR cluster id example_cluster_id observed state transition to TERMINATED_WITH_ERRORS"
     )
@@ -512,7 +516,7 @@ def test_correctly_updates_last_observed_state(
 ):
     mock_dbr_run.state.life_cycle_state = jobs.RunLifeCycleState.TERMINATED
     pipes_client = NonAbstractPipesCloudClient(main_client=mock_workspace_client)
-    pipes_client.last_observed_state = jobs.RunLifeCycleState.RUNNING
+    pipes_client.last_observed_state = jobs.RunLifeCycleState.RUNNING  # pyrefly: ignore
     run_id = str(mock_dbr_run.job_id)
     pipes_client = NonAbstractPipesCloudClient(
         main_client=mock_workspace_client, tagging_client=mock_tagging_client
@@ -583,7 +587,14 @@ def test_returns_false_when_state_is_terminated_success(mock_emr_client):
     client = NonAbstractPipesCloudClient(main_client=mock_emr_client)
     job_flow = "example_job_flow"
     description = {
-        "Cluster": {"Status": {"StateChangeReason": {"Message": "normal message"}}}
+        "Cluster": {
+            "Status": {
+                "StateChangeReason": {
+                    "Message": "normal message",
+                    "Code": "ALL_STEPS_COMPLETED",
+                }
+            }
+        }
     }
     state = "TERMINATED"
     result = client._handle_terminated_state_emr(job_flow, description, state)
