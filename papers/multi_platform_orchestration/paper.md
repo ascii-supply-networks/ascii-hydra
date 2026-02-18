@@ -41,8 +41,8 @@ print-pdf:
 ## Summary
 
 The rapid evolution of big data has amplified the need for robust and efficient data processing.
-Spark-based Platform-as-a-Service (PaaS) options, like Databricks and Amazon EMR, offer strong analytics.
-But at the cost of high operational expenses and vendor lock-in [@kumar].
+Spark-based Platform-as-a-Service (PaaS) options, like Databricks and Amazon EMR, offer strong analytics,
+but at the cost of high operational expenses and vendor lock-in [@kumar].
 Despite being user-friendly, their cost structures and opaque pricing can lead to inefficiencies.
 
 This paper introduces a cost-effective, flexible orchestration framework leveraging Dagster [@dagster].
@@ -52,7 +52,7 @@ We showcase Dagster's power to boost efficiency.
 It enforces coding best practices and reduce costs.
 Our implementation showed a 12% speedup over EMR.
 It cut costs by 40% compared to DBR, saving over 300 euros per pipeline run.
-Our framework supports rapid prototyping and testing.
+This boosts productivity by permitting rapid prototyping on smaller datasets.
 This is key for continuous development and efficiency.
 It promotes a sustainable model for large-scale data processing.
 
@@ -75,9 +75,9 @@ Using a tool like Dagster, researchers can create better workflows.
 It will foster a collaborative scientific environment.
 Their methods will be as open as their findings.
 
-While data pipeline research is growing, existing works focus on different aspects.
-Anil et al. [@Anil] emphasize optimizing big data processing.
-Use energy-efficient scheduling to reduce consumption and latency in data centers.
+While data pipeline research is growing, existing work focuses on different aspects.
+Mathew et al. [@Anil] emphasize optimizing big data processing.
+They use energy-efficient scheduling to reduce consumption and latency in data centers.
 Daw et al. [@Daw] explore using predictive analytics to automate resource scaling in cloud environments.
 This aims to optimize cost and performance.
 Our multi-cloud strategy leverages open orchestration tools like Dagster.
@@ -88,7 +88,7 @@ This approach bridges existing gaps, deftly managing data tasks across diverse P
 The proposed framework improves reproducibility by centralizing metadata management and standardizing orchestration across diverse environments.
 This in turn reduces infrastructure complexity and aids in consistently replicating experiments, supporting
 reliable research.
-Notwithstanding the mounting interest in data pipelines, authors such as Mathew et al. (2024) concentrate on the optimisation of big data processing through sophisticated scheduling techniques that minimise energy consumption and latency.
+Notwithstanding the mounting interest in data pipelines, authors such as @Anil concentrate on the optimisation of big data processing through sophisticated scheduling techniques that minimise energy consumption and latency.
 While their work also aims to optimise resource utilisation in data centres, its core emphasis is on the algorithmic enhancement of scheduling mechanisms, rather than on orchestration across different PaaS solutions or on the promotion of coding practices within data pipelines.
 In their 2021 paper, @Daw examine the creation of a framework for automated scaling of resources in cloud environments.
 Their work focuses on aspects of resource allocation based on predictive analytics, with the goal of optimising operational costs and performance.
@@ -112,17 +112,17 @@ To achieve these capabilities, several modifications to Dagster default clients 
 
 Our framework's core components, depicted in Figure \ref{fig:diagram}, include:
 
-1. **Dagster Context Injector:** It manages general and job-specific settings.
+1. **Dagster Context Injector:** Manages general and job-specific settings.
 They are vital for efficient resource use and task segmentation.
 
-2. **Message Reader Improvements:** It boosts telemetry support.
+2. **Message Reader Improvements:** Boosts telemetry support.
 It captures and processes messages for real-time monitoring and debugging.
 
 3. **Cloud Client Innovations:** Introduces a generic cloud client for managing Dagster on various platforms, ensuring seamless AWS integration and secure environment customization.
 
 4. **Automation and Integration:** Automates job definition uploads with the Databricks REST API and Boto3 clients. It streamlines setup and environment bootstrapping.
 
-5. **Dynamic Factory for Cloud Client Management:** It picks the best execution environments based on changing needs or preferences.
+5. **Dynamic Factory for Cloud Client Management:** Picks the best execution environments based on changing needs or preferences.
 
 These changes aim at creating a user-friendly interface that shields users from the complexities of cloud resource management.
 This shielding significantly reduces overhead and lets organizations focus on strategic goals.
@@ -130,9 +130,9 @@ To minimize inconsistencies and configuration issues, we further dockerized the 
 
 ### Example Use Case: Mining web-based interfirm networks from Common Crawl
 
-We show our framework by making a web-based map of company ecosystems, as [@kinne].
-The research aim in such works is to find relationships between companies.
-To this end company websites are searched for hyperlinks to other company websites, often revealing collaborative innovation efforts.
+We show our framework by making a web-based map of company ecosystems, as @kinne.
+The research aim in such work is to find relationships between companies.
+To this end, company websites are searched for hyperlinks to other company websites, often revealing collaborative innovation efforts.
 
 #### Datasets
 
