@@ -71,29 +71,17 @@ This approach is vital for organizations seeking agile, scalable, and cost-effec
 
 Also, this approach ensures consistency across development stages.
 It helps verify and replicate results, which is critical in scientific research.
-Using a tool like Dagster, researchers can create better workflows.
-It will foster a collaborative scientific environment.
-Their methods will be as open as their findings.
-
-While data pipeline research is growing, existing work focuses on different aspects.
-Mathew et al. [@Anil] emphasize optimizing big data processing.
-They use energy-efficient scheduling to reduce consumption and latency in data centers.
-Daw et al. [@Daw] explore using predictive analytics to automate resource scaling in cloud environments.
-This aims to optimize cost and performance.
-Our multi-cloud strategy leverages open orchestration tools like Dagster.
-This approach bridges existing gaps, deftly managing data tasks across diverse PaaS.
-
-## Relevance
-
 The proposed framework improves reproducibility by centralizing metadata management and standardizing orchestration across diverse environments.
-This in turn reduces infrastructure complexity and aids in consistently replicating experiments, supporting
-reliable research.
-Notwithstanding the mounting interest in data pipelines, authors such as @Anil concentrate on the optimisation of big data processing through sophisticated scheduling techniques that minimise energy consumption and latency.
-While their work also aims to optimise resource utilisation in data centres, its core emphasis is on the algorithmic enhancement of scheduling mechanisms, rather than on orchestration across different PaaS solutions or on the promotion of coding practices within data pipelines.
-In their 2021 paper, @Daw examine the creation of a framework for automated scaling of resources in cloud environments.
-Their work focuses on aspects of resource allocation based on predictive analytics, with the goal of optimising operational costs and performance.
-In contrast to the work presented here, these approaches do not address the integration of multiple cloud platforms or the orchestration of data processing tasks using open tools.
+This, in turn, reduces infrastructure complexity and aids in consistently replicating experiments, supporting reliable research.
+Using a tool like Dagster, researchers can create better workflows, fostering a collaborative scientific environment where methods are as open as findings.
 
+While data pipeline research is growing, existing works focus on different aspects.
+For instance, authors such as [@Anil] concentrate on optimizing big data processing through sophisticated scheduling techniques that minimize energy consumption and latency in data centers.
+Their core emphasis is on the algorithmic enhancement of scheduling mechanisms, rather than on orchestration across different PaaS solutions or the promotion of coding practices within data pipelines.
+Similarly, [@Daw] explores the creation of a framework for automated resource scaling in cloud environments based on predictive analytics, aiming to optimize operational costs and performance.
+
+In contrast to these approaches, which largely do not address the integration of multiple cloud platforms, our multi-cloud strategy leverages open orchestration tools like Dagster.
+This approach bridges existing gaps by deftly managing data tasks and orchestrating processing across diverse PaaS solutions.
 ## Architecture Model
 
 We use Dagster, an open-source data orchestrator, in our framework.
