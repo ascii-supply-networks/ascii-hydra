@@ -76,17 +76,18 @@ This, in turn, reduces infrastructure complexity and aids in consistently replic
 Using a tool like Dagster, researchers can create better workflows, fostering a collaborative scientific environment where methods are as open as findings.
 
 While data pipeline research is growing, existing works focus on different aspects.
-For instance, authors such as [@Anil] concentrate on optimizing big data processing through sophisticated scheduling techniques that minimize energy consumption and latency in data centers.
+For instance, authors such as @Anil concentrate on optimizing big data processing through sophisticated scheduling techniques that minimize energy consumption and latency in data centers.
 Their core emphasis is on the algorithmic enhancement of scheduling mechanisms, rather than on orchestration across different PaaS solutions or the promotion of coding practices within data pipelines.
-Similarly, [@Daw] explores the creation of a framework for automated resource scaling in cloud environments based on predictive analytics, aiming to optimize operational costs and performance.
+Similarly, @Daw explores the creation of a framework for automated resource scaling in cloud environments based on predictive analytics, aiming to optimize operational costs and performance.
 
 In contrast to these approaches, which largely do not address the integration of multiple cloud platforms, our multi-cloud strategy leverages open orchestration tools like Dagster.
 This approach bridges existing gaps by deftly managing data tasks and orchestrating processing across diverse PaaS solutions.
+
 ## Architecture Model
 
 We use Dagster, an open-source data orchestrator, in our framework.
 It builds, operates, and monitors data pipelines next to aligning with our cost and performance optimizations.
-That this pipeline can also significantly reduce resource use has been previously reported, see @Heiler:
+This pipeline can also significantly reduce resource use [@Heiler].
 
 More specifically, we aimed to create a cloud-based management system offering
 
@@ -118,7 +119,7 @@ To minimize inconsistencies and configuration issues, we further dockerized the 
 
 ### Example Use Case: Mining web-based interfirm networks from Common Crawl
 
-We show our framework by making a web-based map of company ecosystems, as @kinne.
+We show our framework by making a web-based map of company ecosystems, similar to that by @kinne.
 The research aim in such work is to find relationships between companies.
 To this end, company websites are searched for hyperlinks to other company websites, often revealing collaborative innovation efforts.
 
